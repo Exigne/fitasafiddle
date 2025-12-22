@@ -1,7 +1,6 @@
-// Use standard pg library instead of @netlify/neon
-const { Pool } = require('pg');
+import pg from 'pg';
+const { Pool } = pg;
 
-// Create connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL ? {
@@ -9,7 +8,7 @@ const pool = new Pool({
   } : false
 });
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   const { httpMethod, body, queryStringParameters } = event;
   
   try {
@@ -79,5 +78,3 @@ exports.handler = async (event, context) => {
       statusCode: 500,
       body: JSON.stringify({ error: 'Database operation failed' })
     };
-  }
-};
