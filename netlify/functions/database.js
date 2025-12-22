@@ -53,10 +53,16 @@ export const handler = async (event) => {
     }
 
     /* -------------------------------
-       POST – save workout
+       POST – save workout  ✅ FIX IS HERE
     -------------------------------- */
     if (event.httpMethod === 'POST') {
-      const { userEmail, exercises } = JSON.parse(event.body || '{}');
+      // 🔧 SAFE BODY PARSING
+      const body =
+        typeof event.body === 'string'
+          ? JSON.parse(event.body)
+          : event.body || {};
+
+      const { userEmail, exercises } = body;
 
       if (!userEmail || !Array.isArray(exercises) || exercises.length === 0) {
         return {
@@ -66,12 +72,13 @@ export const handler = async (event) => {
         };
       }
 
-      // basic validation
+      const isValidNumber = n => Number.isFinite(Number(n));
+
       for (const ex of exercises) {
         if (
           !ex.name ||
-          !Number.isFinite(ex.sets) ||
-          !Number.isFinite(ex.reps)
+          !isValidNumber(ex.sets) ||
+          !isValidNumber(ex.reps)
         ) {
           return {
             statusCode: 400,
@@ -81,7 +88,6 @@ export const handler = async (event) => {
         }
       }
 
-      // transaction
       await sql.begin(async (tx) => {
         const workout = await tx`
           INSERT INTO workouts (user_email)
@@ -91,7 +97,6 @@ export const handler = async (event) => {
 
         const workoutId = workout[0].id;
 
-        // bulk insert
         await tx`
           INSERT INTO workout_logs
             (workout_id, exercise_name, muscle_group, sets, reps, weight)
