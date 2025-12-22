@@ -1,13 +1,11 @@
 import { neon } from '@neondatabase/serverless';
+
 const sql = neon(process.env.DATABASE_URL);
 
-// Move this outside the handler so it's not recreated every single time
 const MUSCLE_MAP = {
-  // Strength
   'Bench Press': 'Chest', 'Incline Press': 'Chest', 'Dips': 'Chest',
   'Squat': 'Legs', 'Deadlift': 'Back', 'Leg Press': 'Legs',
   'Pull-ups': 'Back', 'Rows': 'Back',
-  // Flexibility & Cardio (New)
   'Yoga (Vinyasa)': 'Flexibility', 'Yoga (Hatha)': 'Flexibility',
   'Running (Distance)': 'Cardio', 'Sprinting': 'Cardio',
   'Cycling': 'Cardio', 'Swimming': 'Full Body', 'Pilates': 'Core'
@@ -20,10 +18,10 @@ export const handler = async (event) => {
   };
 
   try {
-    const { user, action } = event.queryStringParameters || {};
+    const { user, action, id } = event.queryStringParameters || {};
     const body = event.body ? JSON.parse(event.body) : {};
 
-    // --- AUTHENTICATION LOGIC ---
+    // --- AUTHENTICATION ---
     if (event.httpMethod === 'POST' && body.action === 'auth') {
       const { email, password, isRegistering } = body;
       if (isRegistering) {
@@ -49,15 +47,13 @@ export const handler = async (event) => {
         `;
         return { statusCode: 200, headers, body: JSON.stringify(leaders) };
       }
-      // Added muscle_group to the select for your analytics
+      
       const history = await sql`SELECT * FROM workouts WHERE user_email = ${user} ORDER BY created_at DESC`;
       return { statusCode: 200, headers, body: JSON.stringify(history) };
     }
 
     if (event.httpMethod === 'POST') {
       const { userEmail, exercise, sets, reps, weight } = body;
-      
-      // LOOKUP: Determine muscle group based on exercise
       const muscleGroup = MUSCLE_MAP[exercise] || 'Other';
 
       const result = await sql`
@@ -67,6 +63,13 @@ export const handler = async (event) => {
       `;
       return { statusCode: 201, headers, body: JSON.stringify(result[0]) };
     }
+
+    // --- DELETE LOGIC ---
+    if (event.httpMethod === 'DELETE') {
+      await sql`DELETE FROM workouts WHERE id = ${id} AND user_email = ${user}`;
+      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Deleted' }) };
+    }
+
   } catch (e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }
