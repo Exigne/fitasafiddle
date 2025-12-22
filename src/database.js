@@ -1,31 +1,63 @@
-// This will connect to your Netlify DB (Neon PostgreSQL)
-const DATABASE_URL = process.env.DATABASE_URL || import.meta.env.VITE_DATABASE_URL
+const API_BASE = '/.netlify/functions/database';
 
-// For now, we'll use mock data, but this is where you'll connect to your real DB
-export const database = {
-  // User management
+export const databaseAPI = {
+  // User operations
   async createUser(email, password) {
-    // TODO: Connect to Netlify DB and create user
-    console.log('Creating user:', email)
-    return { id: Date.now().toString(), email }
+    try {
+      const response = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'createUser', 
+          email, 
+          password 
+        })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Create user error:', error);
+      throw error;
+    }
   },
 
-  async getUserByEmail(email) {
-    // TODO: Query Netlify DB for user
-    console.log('Getting user by email:', email)
-    return null
+  async getUser(email, password) {
+    try {
+      const response = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'getUser', 
+          email, 
+          password 
+        })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Get user error:', error);
+      throw error;
+    }
   },
 
-  // Workout management
-  async createWorkout(userId, workoutData) {
-    // TODO: Save workout to Netlify DB
-    console.log('Creating workout for user:', userId, workoutData)
-    return { id: Date.now().toString(), ...workoutData, userId }
+  // Workout operations
+  async addWorkout(userId, workoutData) {
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: 'addWorkout', 
+        userId, 
+        ...workoutData 
+      })
+    });
+    return response.json();
   },
 
-  async getUserWorkouts(userId) {
-    // TODO: Get workouts from Netlify DB
-    console.log('Getting workouts for user:', userId)
-    return []
+  async getWorkouts(userId) {
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getWorkouts', userId })
+    });
+    return response.json();
   }
-}
+};
