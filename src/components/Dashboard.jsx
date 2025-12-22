@@ -58,12 +58,11 @@ const Dashboard = ({ currentUser, onLogout }) => {
 
   const currentConfig = ACTIVITY_CONFIG[exercise];
 
-  // --- Chart Data Transformation ---
   const volumeData = {
     labels: workouts.slice(0, 7).map(w => new Date(w.created_at).toLocaleDateString()).reverse(),
     datasets: [{
       label: 'Activity Volume',
-      data: workouts.slice(0, 7).map(w => w.weight * w.reps * (w.sets || 1)).reverse(),
+      data: workouts.slice(0, 7).map(w => (w.weight || 0) * (w.reps || 0) * (w.sets || 1)).reverse(),
       backgroundColor: 'rgba(56, 189, 248, 0.6)',
       borderColor: '#38bdf8',
       borderWidth: 2,
@@ -90,9 +89,9 @@ const Dashboard = ({ currentUser, onLogout }) => {
     <div style={theme.wrapper}>
       <header style={theme.header}>
         <div style={theme.profileSection}>
-          <div style={theme.avatar}>{currentUser.email[0].toUpperCase()}</div>
+          <div style={theme.avatar}>{currentUser?.email?.[0].toUpperCase() || 'U'}</div>
           <div>
-            <h2 style={{ margin: 0 }}>{currentUser.email.split('@')[0]}</h2>
+            <h2 style={{ margin: 0 }}>{currentUser?.email?.split('@')[0]}</h2>
             <span style={theme.badge}>PRO Athlete • {workouts.length} Workouts</span>
           </div>
         </div>
@@ -113,28 +112,26 @@ const Dashboard = ({ currentUser, onLogout }) => {
 
         <div style={theme.column}>
           <div style={theme.actionCard}>
-            <h3 style={{ color: '#fff', marginTop: 0 }}>Log {currentConfig.group}</h3>
+            <h3 style={{ color: '#fff', marginTop: 0 }}>Log {currentConfig?.group || 'Session'}</h3>
             <form onSubmit={handleSave} style={theme.inputGroup}>
-<select 
-  value={exercise} 
-  onChange={e => setExercise(e.target.value)} 
-  style={theme.input}
->
-  {/* This line is what generates the list from your config */}
-  {Object.keys(ACTIVITY_CONFIG).map(name => (
-    <option key={name} value={name}>
-      {name}
-    </option>
-  ))}
-</select>
+              <select value={exercise} onChange={e => setExercise(e.target.value)} style={theme.input}>
+                {Object.keys(ACTIVITY_CONFIG).map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
               </select>
               <div style={theme.row}>
-                <div><label style={theme.label}>{currentConfig.label1}</label>
-                <input type="number" value={val1} onChange={e => setVal1(e.target.value)} style={theme.input} placeholder="0" /></div>
-                <div><label style={theme.label}>{currentConfig.label2}</label>
-                <input type="number" value={val2} onChange={e => setVal2(e.target.value)} style={theme.input} placeholder="0" /></div>
-                <div><label style={theme.label}>{currentConfig.label3}</label>
-                <input type="number" value={val3} onChange={e => setVal3(e.target.value)} style={theme.input} placeholder="0" /></div>
+                <div>
+                  <label style={theme.label}>{currentConfig?.label1 || 'Sets'}</label>
+                  <input type="number" value={val1} onChange={e => setVal1(e.target.value)} style={theme.input} placeholder="0" />
+                </div>
+                <div>
+                  <label style={theme.label}>{currentConfig?.label2 || 'Reps'}</label>
+                  <input type="number" value={val2} onChange={e => setVal2(e.target.value)} style={theme.input} placeholder="0" />
+                </div>
+                <div>
+                  <label style={theme.label}>{currentConfig?.label3 || 'kg'}</label>
+                  <input type="number" value={val3} onChange={e => setVal3(e.target.value)} style={theme.input} placeholder="0" />
+                </div>
               </div>
               <button disabled={saving} style={theme.primaryBtn}>{saving ? 'Syncing...' : 'Complete Session'}</button>
             </form>
@@ -151,7 +148,7 @@ const Dashboard = ({ currentUser, onLogout }) => {
                   <div style={{ fontWeight: 'bold' }}>{w.exercise}</div>
                   <div style={{ fontSize: '12px', opacity: 0.7 }}>{new Date(w.created_at).toLocaleDateString()}</div>
                 </div>
-                <div style={{ color: '#38bdf8', fontWeight: 'bold' }}>{w.weight}{ACTIVITY_CONFIG[w.exercise]?.label3 || 'u'}</div>
+                <div style={{ color: '#38bdf8', fontWeight: 'bold' }}>{w.weight}{ACTIVITY_CONFIG[w.exercise]?.label3 || ''}</div>
               </div>
             ))}
           </div>
@@ -175,7 +172,7 @@ const theme = {
   input: { width: '100%', padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', boxSizing: 'border-box' },
   label: { display: 'block', fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginBottom: '5px', textTransform: 'uppercase', paddingLeft: '4px' },
   row: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' },
-  primaryBtn: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#fff', color: '#4f46e5', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px', transition: 'transform 0.2s' },
+  primaryBtn: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#fff', color: '#4f46e5', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' },
   activityItem: { display: 'flex', justifyContent: 'space-between', padding: '15px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' },
   logoutBtn: { background: 'transparent', color: '#94a3b8', border: '1px solid #334155', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }
 };
