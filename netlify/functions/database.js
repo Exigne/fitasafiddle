@@ -10,6 +10,13 @@ export const handler = async (event) => {
   try {
     const { user, action } = event.queryStringParameters || {};
     const body = event.body ? JSON.parse(event.body) : {};
+    // Add these to your logic to categorize muscle groups automatically
+const MUSCLE_MAP = {
+  'Bench Press': 'Chest', 'Incline Press': 'Chest', 'Dips': 'Chest',
+  'Squat': 'Legs', 'Deadlift': 'Back/Legs', 'Leg Press': 'Legs',
+  'Pull-ups': 'Back', 'Rows': 'Back', 'Lat Pulldown': 'Back',
+  'Overhead Press': 'Shoulders', 'Lateral Raises': 'Shoulders'
+};
 
     // --- AUTHENTICATION LOGIC ---
     if (event.httpMethod === 'POST' && body.action === 'auth') {
