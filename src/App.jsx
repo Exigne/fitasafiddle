@@ -3,114 +3,70 @@ import { databaseAPI } from './api/database.js';
 import './App.css';
 
 const AuthForm = ({ isLogin, onSuccess, onSwitch }) => {
-  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('checking');
-
-  // Test database connection on mount
-  useEffect(() => {
-    testConnection();
-  }, []);
-
-  const testConnection = async () => {
-    try {
-      const result = await databaseAPI.getUser('test@test.com', 'test123');
-      setConnectionStatus(result ? 'connected' : 'connected');
-    } catch (error) {
-      console.log('Database connection test failed, using fallback');
-      setConnectionStatus('fallback');
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    if (!isLogin && formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      console.log('Attempting authentication...');
-      let user;
-      
-      if (isLogin) {
-        user = await databaseAPI.getUser(formData.email, formData.password);
-        if (!user) {
-          setError('Invalid credentials');
-          setLoading(false);
-          return;
-        }
-      } else {
-        // Check if user exists first
-        const existingUser = await databaseAPI.getUser(formData.email, formData.password);
-        if (existingUser) {
-          setError('Email already exists');
-          setLoading(false);
-          return;
-        }
-        
-        user = await databaseAPI.createUser(formData.email, formData.password);
-      }
-      
-      console.log('Authentication successful:', user);
-      onSuccess(user);
-      
-    } catch (err) {
-      console.error('Authentication error:', err);
-      setError(err.message || 'Authentication failed - please try again');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ... your existing state and functions ...
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', 
                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
       <div style={{ background: 'white', padding: '3rem', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', 
                    textAlign: 'center', maxWidth: '400px', width: '100%' }}>
+        
         <h2 style={{ color: '#4a5568', marginBottom: '0.5rem' }}>{isLogin ? 'Login to FitFiddle' : 'Join FitFiddle'}</h2>
         <p style={{ color: '#718096', marginBottom: '2rem' }}>Musical Fitness App</p>
         
-        {connectionStatus === 'fallback' && (
-          <div style={{ background: '#fff3cd', color: '#856404', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
-            ⚠️ Using offline mode - data works across devices but won't persist permanently
-          </div>
-        )}
-        
         {error && <div style={{ background: '#fed7d7', color: '#c53030', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem' }}>{error}</div>}
         
+        {/* ADD THE DEBUG BUTTON HERE - RIGHT AFTER THE ERROR DIV */}
+        <button 
+          type="button" 
+          onClick={async () => {
+            console.log('=== DEBUGGING LOGIN ===');
+            console.log('Testing with:', formData.email || 'your-email', formData.password || 'your-password');
+            
+            try {
+              const response = await fetch('/.netlify/functions/database', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  action: 'getUser', 
+                  email: formData.email || 'test@test.com', 
+                  password: formData.password || 'test123' 
+                })
+              });
+              
+              console.log('Response status:', response.status);
+              console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+              
+              const text = await response.text();
+              console.log('Raw response text:', `"${text}"`);
+              console.log('Response length:', text.length);
+              
+              if (!text || text.trim() === '') {
+                console.log('❌ EMPTY RESPONSE - User not found or database issue');
+                alert('Empty response - user not found in database');
+              } else {
+                try {
+                  const data = JSON.parse(text);
+                  console.log('Parsed data:', data);
+                  alert('Response: ' + (data ? JSON.stringify(data) : 'null (user not found)'));
+                } catch (e) {
+                  console.log('Raw text response:', text);
+                  alert('Raw response: ' + text);
+                }
+              }
+            } catch (err) {
+              console.error('❌ Network error:', err);
+              alert('Network error: ' + err.message);
+            }
+          }}
+          style={{background: '#f44336', color: 'white', padding: '0.5rem', marginBottom: '1rem', width: '100%'}}
+        >
+          🐛 Debug Login Response
+        </button>
+        
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
-            required
-            style={{ padding: '1rem', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '1rem' }}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={(e) => setFormData({...formData, password: e.target.value})}
-            required
-            style={{ padding: '1rem', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '1rem' }}
-          />
-          {!isLogin && (
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-              required
-              style={{ padding: '1rem', border: '2px solid #e2e8f0', borderRadius: '12px', fontSize: '1rem' }}
-            />
-          )}
+          {/* your existing form inputs here */}
+          
           <button type="submit" style={{ 
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white', border: 'none', padding: '1rem', borderRadius: '12px',
@@ -121,11 +77,7 @@ const AuthForm = ({ isLogin, onSuccess, onSwitch }) => {
         </form>
         
         <div style={{ marginTop: '1.5rem', color: '#718096' }}>
-          {isLogin ? (
-            <p>Don't have an account? <button onClick={onSwitch} style={{ background: 'none', border: 'none', color: '#667eea', cursor: 'pointer', fontWeight: '600' }}>Register</button></p>
-          ) : (
-            <p>Already have an account? <button onClick={onSwitch} style={{ background: 'none', border: 'none', color: '#667eea', cursor: 'pointer', fontWeight: '600' }}>Login</button></p>
-          )}
+          {/* your existing switch button here */}
         </div>
       </div>
     </div>
