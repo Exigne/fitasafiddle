@@ -161,4 +161,100 @@ const Dashboard = () => {
             <h3>Total Workouts</h3>
             <p>{workouts.length}</p>
           </div>
-          
+          <div className="stat-card">
+            <h3>This Week</h3>
+            <p>{workouts.filter(w => {
+              const workoutDate = new Date(w.date)
+              const weekAgo = new Date()
+              weekAgo.setDate(weekAgo.getDate() - 7)
+              return workoutDate >= weekAgo
+            }).length}</p>
+          </div>
+          <div className="stat-card">
+            <h3>Favorite Exercise</h3>
+            <p>{workouts.length > 0 ? 'Bench Press' : 'None'}</p>
+          </div>
+        </div>
+
+        <div className="action-sections">
+          <div className="action-card">
+            <h3>Log Workout</h3>
+            <p>Track your exercise with music</p>
+            <button className="action-btn" onClick={addWorkout}>Add Workout</button>
+          </div>
+          <div className="action-card">
+            <h3>View Progress</h3>
+            <p>Visual analytics and charts</p>
+            <button className="action-btn">View Charts</button>
+          </div>
+          <div className="action-card">
+            <h3>Muscle Groups</h3>
+            <p>Track by muscle breakdown</p>
+            <button className="action-btn">Breakdown</button>
+          </div>
+        </div>
+
+        {workouts.length > 0 && (
+          <div className="recent-workouts">
+            <h3>Recent Workouts</h3>
+            <div className="workout-list">
+              {workouts.slice(-5).map(workout => (
+                <div key={workout.id} className="workout-item">
+                  <span>{workout.exercise}</span>
+                  <span>{workout.sets} sets × {workout.reps} reps</span>
+                  <span>{workout.weight} lbs</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLogin, setIsLogin] = useState(true)
+
+  useEffect(() => {
+    // Check URL parameter for register view
+    const urlParams = new URLSearchParams(window.location.search)
+    const view = urlParams.get('view')
+    if (view === 'register') {
+      setIsLogin(false)
+    }
+
+    const user = localStorage.getItem('user')
+    setIsAuthenticated(!!user)
+  }, [])
+
+  const handleAuthSuccess = () => {
+    setIsAuthenticated(true)
+  }
+
+  const switchToRegister = () => {
+    setIsLogin(false)
+    window.history.pushState({}, '', '?view=register')
+  }
+
+  const switchToLogin = () => {
+    setIsLogin(true)
+    window.history.pushState({}, '', '?view=login')
+  }
+
+  return (
+    <div className="App">
+      {isAuthenticated ? (
+        <Dashboard />
+      ) : (
+        <AuthForm 
+          isLogin={isLogin} 
+          onSuccess={handleAuthSuccess}
+        />
+      )}
+    </div>
+  )
+}
+
+export default App
