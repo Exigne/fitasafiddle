@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { databaseAPI } from './api/database.js'; // Add this import!
+import './App.css';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { 
   AppBar, Toolbar, Typography, Container, Paper, Button, 
