@@ -3,10 +3,14 @@ const sql = neon(process.env.DATABASE_URL);
 
 // Move this outside the handler so it's not recreated every single time
 const MUSCLE_MAP = {
+  // Strength
   'Bench Press': 'Chest', 'Incline Press': 'Chest', 'Dips': 'Chest',
   'Squat': 'Legs', 'Deadlift': 'Back', 'Leg Press': 'Legs',
-  'Pull-ups': 'Back', 'Rows': 'Back', 'Lat Pulldown': 'Back',
-  'Overhead Press': 'Shoulders', 'Lateral Raises': 'Shoulders'
+  'Pull-ups': 'Back', 'Rows': 'Back',
+  // Flexibility & Cardio (New)
+  'Yoga (Vinyasa)': 'Flexibility', 'Yoga (Hatha)': 'Flexibility',
+  'Running (Distance)': 'Cardio', 'Sprinting': 'Cardio',
+  'Cycling': 'Cardio', 'Swimming': 'Full Body', 'Pilates': 'Core'
 };
 
 export const handler = async (event) => {
