@@ -1,17 +1,17 @@
-// Use standard pg library instead of @netlify/neon
 import pg from 'pg';
 const { Pool } = pg;
 
-// Create connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? {
+  ssl: {
     rejectUnauthorized: false
-  } : false
+  }
 });
 
 export const handler = async (event, context) => {
   try {
+    console.log('Setting up database with connection:', process.env.DATABASE_URL ? 'URL present' : 'URL missing');
+    
     // Create users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -38,15 +38,16 @@ export const handler = async (event, context) => {
       )
     `);
 
+    console.log('Database setup complete!');
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Database setup complete' })
+      body: JSON.stringify({ message: 'Database setup complete', success: true })
     };
   } catch (error) {
     console.error('Setup error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Database setup failed' })
+      body: JSON.stringify({ error: 'Database setup failed', details: error.message })
     };
   }
 };
