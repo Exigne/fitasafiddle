@@ -1,83 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { databaseAPI } from './api/database.js'; // Add this import!
-import './App.css';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { 
-  AppBar, Toolbar, Typography, Container, Paper, Button, 
-  TextField, Card, CardContent, Grid, Box, Tabs, Tab,
-  CircularProgress, Alert, IconButton, MenuItem
-} from '@mui/material';
-import { 
-  FitnessCenter, Timer, TrendingUp, ExitToApp, 
-  AddCircle, History, BarChart, MusicNote
-} from '@mui/icons-material';
-import { Line, Doughnut } from 'react-chartjs-2';
-import { format, subDays } from 'date-fns';
+import { databaseAPI } from './api/database.js';
 import './App.css';
 
-// Modern theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#667eea',
-    },
-    secondary: {
-      main: '#f50057',
-    },
-    background: {
-      default: '#f5f7fa',
-      paper: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 700,
-    },
-    h6: {
-      fontWeight: 600,
-    },
-  },
-  shape: {
-    borderRadius: 12,
-  },
-});
-
-// Simple auth component
 const AuthForm = ({ isLogin, onSuccess, onSwitch }) => {
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-// In your AuthForm component, update handleSubmit:
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  if (!isLogin && formData.password !== formData.confirmPassword) {
-    setError('Passwords do not match');
-    return;
-  }
-
-  try {
-    if (isLogin) {
-      // LOGIN - check database
-      const user = await databaseAPI.getUser(formData.email, formData.password);
-      if (user) {
-        localStorage.setItem('currentUser', JSON.stringify({ id: user.id, email: user.email }));
-        onSuccess();
-      } else {
-        setError('Invalid credentials');
-      }
-    } else {
-      // REGISTER - create in database
-      const newUser = await databaseAPI.createUser(formData.email, formData.password);
-      localStorage.setItem('currentUser', JSON.stringify({ id: newUser.id, email: newUser.email }));
-      onSuccess();
+    if (!isLogin && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
     }
-  } catch (err) {
-    setError(err.message || 'Database connection failed');
-  }
-};
+
+    try {
+      if (isLogin) {
+        // LOGIN - check database
+        const user = await databaseAPI.getUser(formData.email, formData.password);
+        if (user) {
+          onSuccess(user);
+        } else {
+          setError('Invalid credentials');
+        }
+      } else {
+        // REGISTER - create in database
+        const newUser = await databaseAPI.createUser(formData.email, formData.password);
+        onSuccess(newUser);
+      }
+    } catch (err) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', 
@@ -120,8 +80,8 @@ const handleSubmit = async (e) => {
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white', border: 'none', padding: '1rem', borderRadius: '12px',
             fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer'
-          }}>
-            {isLogin ? 'Login' : 'Register'}
+          }} disabled={loading}>
+            {loading ? 'Loading...' : (isLogin ? 'Login' : 'Register')}
           </button>
         </form>
         
@@ -137,9 +97,7 @@ const handleSubmit = async (e) => {
   );
 };
 
-// Modern Dashboard
-const Dashboard = () => {
-  const [user, setUser] = useState(null);
+const Dashboard = ({ currentUser, onLogout }) => {
   const [workouts, setWorkouts] = useState([]);
   const [newWorkout, setNewWorkout] = useState({
     exercise: '',
@@ -147,41 +105,48 @@ const Dashboard = () => {
     reps: 10,
     weight: 0
   });
+  const [loading, setLoading] = useState(false);
 
+  // Load workouts from database
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      const userWorkouts = JSON.parse(localStorage.getItem('workouts') || '[]')
-        .filter(w => w.userId === JSON.parse(storedUser).id);
-      setWorkouts(userWorkouts);
+    if (currentUser?.id) {
+      loadWorkouts();
     }
-  }, []);
+  }, [currentUser]);
 
-  const addWorkout = () => {
+  const loadWorkouts = async () => {
+    try {
+      setLoading(true);
+      const userWorkouts = await databaseAPI.getWorkouts(currentUser.id);
+      setWorkouts(userWorkouts);
+    } catch (error) {
+      console.error('Failed to load workouts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addWorkout = async () => {
     if (!newWorkout.exercise || newWorkout.weight <= 0) {
       alert('Please fill in all fields');
       return;
     }
 
-    const workout = {
-      id: Date.now().toString(),
-      userId: user.id,
-      ...newWorkout,
-      date: new Date().toISOString()
-    };
-
-    const updatedWorkouts = [...workouts, workout];
-    localStorage.setItem('workouts', JSON.stringify(updatedWorkouts));
-    setWorkouts(updatedWorkouts);
-    
-    // Reset form
-    setNewWorkout({ exercise: '', sets: 3, reps: 10, weight: 0 });
+    try {
+      const workout = await databaseAPI.addWorkout(currentUser.id, newWorkout);
+      setWorkouts([workout, ...workouts]);
+      
+      // Reset form
+      setNewWorkout({ exercise: '', sets: 3, reps: 10, weight: 0 });
+    } catch (error) {
+      console.error('Failed to add workout:', error);
+      alert('Failed to save workout');
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    window.location.reload();
+    // No localStorage cleanup needed - we're using database
+    onLogout();
   };
 
   const getWorkoutStats = () => {
@@ -203,7 +168,7 @@ const Dashboard = () => {
       <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', padding: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>FitFiddle Dashboard</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span>Welcome, {user?.email}</span>
+          <span>Welcome, {currentUser?.email}</span>
           <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>
             Logout
           </button>
@@ -266,8 +231,8 @@ const Dashboard = () => {
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '12px',
             fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer'
-          }}>
-            Log Workout
+          }} disabled={loading}>
+            {loading ? 'Saving...' : 'Log Workout'}
           </button>
         </div>
 
@@ -275,23 +240,30 @@ const Dashboard = () => {
         {workouts.length > 0 && (
           <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
             <h3>Recent Workouts</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {workouts.slice(-5).reverse().map(workout => (
-                <div key={workout.id} style={{ 
-                  background: '#f7fafc', border: '2px solid #e2e8f0', borderRadius: '12px', 
-                  padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
-                }}>
-                  <div>
-                    <h4 style={{ color: '#2d3748', marginBottom: '0.5rem' }}>{workout.exercise}</h4>
-                    <p style={{ color: '#718096', margin: 0 }}>{workout.sets} sets × {workout.reps} reps</p>
+            {loading ? (
+              <p>Loading workouts...</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {workouts.slice(0, 5).map(workout => (
+                  <div key={workout.id} style={{ 
+                    background: '#f7fafc', border: '2px solid #e2e8f0', borderRadius: '12px', 
+                    padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
+                  }}>
+                    <div>
+                      <h4 style={{ color: '#2d3748', marginBottom: '0.5rem' }}>{workout.exercise}</h4>
+                      <p style={{ color: '#718096', margin: 0 }}>{workout.sets} sets × {workout.reps} reps</p>
+                      <p style={{ color: '#718096', margin: 0, fontSize: '0.9rem' }}>
+                        {new Date(workout.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '2rem', fontWeight: '800', color: '#667eea' }}>{workout.weight}</span>
+                      <span style={{ fontSize: '1rem', color: '#a0aec0', marginLeft: '0.25rem' }}>lbs</span>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '2rem', fontWeight: '800', color: '#667eea' }}>{workout.weight}</span>
-                    <span style={{ fontSize: '1rem', color: '#a0aec0', marginLeft: '0.25rem' }}>lbs</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -299,23 +271,27 @@ const Dashboard = () => {
   );
 };
 
-// Main App Component
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const user = localStorage.getItem('currentUser');
-    setIsAuthenticated(!!user);
-    
+    // Check URL params for register view
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === 'register') {
       setIsLogin(false);
     }
   }, []);
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = (user) => {
+    setCurrentUser(user);
     setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
   };
 
   const switchToRegister = () => {
@@ -331,7 +307,7 @@ function App() {
   return (
     <div className="App">
       {isAuthenticated ? (
-        <Dashboard />
+        <Dashboard currentUser={currentUser} onLogout={handleLogout} />
       ) : (
         <AuthForm 
           isLogin={isLogin} 
