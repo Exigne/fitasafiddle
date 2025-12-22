@@ -1,24 +1,76 @@
 import React, { useState, useEffect } from 'react'
 import './App.css'
 
-// Basic components for now - we'll build these out
-const Login = () => {
+// Simple hash function for passwords (use bcrypt in production)
+const simpleHash = (str) => {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash
+  }
+  return hash.toString()
+}
+
+// Database simulation (will be replaced with real DB calls)
+const mockDatabase = {
+  users: [],
+  workouts: []
+}
+
+const AuthForm = ({ isLogin, onSuccess }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
 
-  const handleLogin = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
-    // For now, just simulate login
-    localStorage.setItem('user', JSON.stringify({ email, id: 1 }))
-    window.location.reload()
+    setError('')
+
+    if (!isLogin && password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (isLogin) {
+      // Login logic
+      const user = mockDatabase.users.find(u => u.email === email && u.password === simpleHash(password))
+      if (user) {
+        localStorage.setItem('user', JSON.stringify({ id: user.id, email: user.email }))
+        onSuccess()
+      } else {
+        setError('Invalid credentials')
+      }
+    } else {
+      // Registration logic
+      if (mockDatabase.users.find(u => u.email === email)) {
+        setError('Email already exists')
+        return
+      }
+
+      const newUser = {
+        id: Date.now().toString(),
+        email,
+        password: simpleHash(password),
+        createdAt: new Date().toISOString()
+      }
+      
+      mockDatabase.users.push(newUser)
+      localStorage.setItem('user', JSON.stringify({ id: newUser.id, email: newUser.email }))
+      onSuccess()
+    }
   }
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2>FitFiddle Login</h2>
-        <p>Musical Fit Fiddle</p>
-        <form onSubmit={handleLogin}>
+    <div className="auth-container">
+      <div className="auth-card">
+        <h2>{isLogin ? 'Login to FitFiddle' : 'Join FitFiddle'}</h2>
+        <p>Musical Fitness App</p>
+        
+        {error && <div className="error-message">{error}</div>}
+        
+        <form onSubmit={handleSubmit}>
           <input
             type="email"
             placeholder="Email"
@@ -33,8 +85,27 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button type="submit">Login</button>
+          {!isLogin && (
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          )}
+          <button type="submit">
+            {isLogin ? 'Login' : 'Register'}
+          </button>
         </form>
+        
+        <div className="auth-switch">
+          {isLogin ? (
+            <p>Don't have an account? <button onClick={() => window.location.href='?register'}>Register</button></p>
+          ) : (
+            <p>Already have an account? <button onClick={() => window.location.href='?login'}>Login</button></p>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -42,17 +113,36 @@ const Login = () => {
 
 const Dashboard = () => {
   const [user, setUser] = useState(null)
+  const [workouts, setWorkouts] = useState([])
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user')
     if (storedUser) {
       setUser(JSON.parse(storedUser))
+      // Load user workouts from database
+      const userWorkouts = mockDatabase.workouts.filter(w => w.userId === JSON.parse(storedUser).id)
+      setWorkouts(userWorkouts)
     }
   }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('user')
-    window.location.reload()
+    window.location.href = '/'
+  }
+
+  const addWorkout = () => {
+    const newWorkout = {
+      id: Date.now().toString(),
+      userId: user.id,
+      exercise: 'Bench Press',
+      sets: 3,
+      reps: 10,
+      weight: 135,
+      date: new Date().toISOString()
+    }
+    
+    mockDatabase.workouts.push(newWorkout)
+    setWorkouts([...workouts, newWorkout])
   }
 
   return (
@@ -69,53 +159,6 @@ const Dashboard = () => {
         <div className="quick-stats">
           <div className="stat-card">
             <h3>Total Workouts</h3>
-            <p>0</p>
+            <p>{workouts.length}</p>
           </div>
-          <div className="stat-card">
-            <h3>This Week</h3>
-            <p>0</p>
-          </div>
-          <div className="stat-card">
-            <h3>Streak</h3>
-            <p>0 days</p>
-          </div>
-        </div>
-
-        <div className="action-sections">
-          <div className="action-card">
-            <h3>Log Workout</h3>
-            <p>Track your exercise</p>
-            <button className="action-btn">Start Workout</button>
-          </div>
-          <div className="action-card">
-            <h3>View Progress</h3>
-            <p>See your analytics</p>
-            <button className="action-btn">View Charts</button>
-          </div>
-          <div className="action-card">
-            <h3>Muscle Groups</h3>
-            <p>Track by muscle</p>
-            <button className="action-btn">Breakdown</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-
-  useEffect(() => {
-    const user = localStorage.getItem('user')
-    setIsAuthenticated(!!user)
-  }, [])
-
-  return (
-    <div className="App">
-      {isAuthenticated ? <Dashboard /> : <Login />}
-    </div>
-  )
-}
-
-export default App
+          
