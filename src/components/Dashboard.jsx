@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 // In your Dashboard component, add these functions:
 
