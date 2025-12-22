@@ -1,37 +1,20 @@
 import { neon } from '@neondatabase/serverless';
-
 const sql = neon(process.env.DATABASE_URL);
 
 export const handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
-
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+  const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
 
   try {
     const { user, action } = event.queryStringParameters || {};
 
     if (event.httpMethod === 'GET') {
-      // Handles the League Table/Leaderboard request
       if (action === 'leaderboard') {
         const leaders = await sql`
-          SELECT user_email, 
-                 SUM(sets) as total_sets, 
-                 SUM(weight * reps * sets) as total_volume
-          FROM workouts 
-          GROUP BY user_email 
-          ORDER BY total_volume DESC 
-          LIMIT 10
+          SELECT user_email, SUM(weight * reps * sets) as total_volume
+          FROM workouts GROUP BY user_email ORDER BY total_volume DESC LIMIT 5
         `;
         return { statusCode: 200, headers, body: JSON.stringify(leaders) };
       }
-
-      // Handles the personal history request
-      if (!user) return { statusCode: 400, headers, body: JSON.stringify({ error: 'User email required' }) };
       const history = await sql`SELECT * FROM workouts WHERE user_email = ${user} ORDER BY created_at DESC`;
       return { statusCode: 200, headers, body: JSON.stringify(history) };
     }
@@ -40,12 +23,11 @@ export const handler = async (event) => {
       const { userEmail, exercise, sets, reps, weight } = JSON.parse(event.body);
       const result = await sql`
         INSERT INTO workouts (user_email, exercise, sets, reps, weight)
-        VALUES (${userEmail}, ${exercise}, ${sets}, ${reps}, ${weight})
-        RETURNING *
+        VALUES (${userEmail}, ${exercise}, ${sets}, ${reps}, ${weight}) RETURNING *
       `;
       return { statusCode: 201, headers, body: JSON.stringify(result[0]) };
     }
-  } catch (error) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
+  } catch (e) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }
 };
