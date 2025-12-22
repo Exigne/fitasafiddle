@@ -14,11 +14,16 @@ const simpleHash = (str) => {
 
 // Database simulation (will be replaced with real DB calls)
 const mockDatabase = {
-  users: [],
-  workouts: []
+  users: JSON.parse(localStorage.getItem('users') || '[]'),
+  workouts: JSON.parse(localStorage.getItem('workouts') || '[]')
 }
 
-const AuthForm = ({ isLogin, onSuccess }) => {
+const saveToLocalStorage = () => {
+  localStorage.setItem('users', JSON.stringify(mockDatabase.users))
+  localStorage.setItem('workouts', JSON.stringify(mockDatabase.workouts))
+}
+
+const AuthForm = ({ isLogin, onSuccess, onSwitch }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -34,16 +39,16 @@ const AuthForm = ({ isLogin, onSuccess }) => {
     }
 
     if (isLogin) {
-      // Login logic
+      // LOGIN LOGIC
       const user = mockDatabase.users.find(u => u.email === email && u.password === simpleHash(password))
       if (user) {
-        localStorage.setItem('user', JSON.stringify({ id: user.id, email: user.email }))
+        localStorage.setItem('currentUser', JSON.stringify({ id: user.id, email: user.email }))
         onSuccess()
       } else {
         setError('Invalid credentials')
       }
     } else {
-      // Registration logic
+      // REGISTRATION LOGIC - FIXED!
       if (mockDatabase.users.find(u => u.email === email)) {
         setError('Email already exists')
         return
@@ -57,7 +62,10 @@ const AuthForm = ({ isLogin, onSuccess }) => {
       }
       
       mockDatabase.users.push(newUser)
-      localStorage.setItem('user', JSON.stringify({ id: newUser.id, email: newUser.email }))
+      saveToLocalStorage()
+      
+      // Auto-login after registration
+      localStorage.setItem('currentUser', JSON.stringify({ id: newUser.id, email: newUser.email }))
       onSuccess()
     }
   }
@@ -101,9 +109,9 @@ const AuthForm = ({ isLogin, onSuccess }) => {
         
         <div className="auth-switch">
           {isLogin ? (
-            <p>Don't have an account? <button onClick={() => window.location.href='?register'}>Register</button></p>
+            <p>Don't have an account? <button type="button" onClick={onSwitch}>Register</button></p>
           ) : (
-            <p>Already have an account? <button onClick={() => window.location.href='?login'}>Login</button></p>
+            <p>Already have an account? <button type="button" onClick={onSwitch}>Login</button></p>
           )}
         </div>
       </div>
@@ -116,7 +124,7 @@ const Dashboard = () => {
   const [workouts, setWorkouts] = useState([])
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
+    const storedUser = localStorage.getItem('currentUser')
     if (storedUser) {
       setUser(JSON.parse(storedUser))
       // Load user workouts from database
@@ -126,8 +134,8 @@ const Dashboard = () => {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('user')
-    window.location.href = '/'
+    localStorage.removeItem('currentUser')
+    window.location.reload()
   }
 
   const addWorkout = () => {
@@ -142,6 +150,7 @@ const Dashboard = () => {
     }
     
     mockDatabase.workouts.push(newWorkout)
+    saveToLocalStorage()
     setWorkouts([...workouts, newWorkout])
   }
 
@@ -218,15 +227,14 @@ function App() {
   const [isLogin, setIsLogin] = useState(true)
 
   useEffect(() => {
-    // Check URL parameter for register view
+    const user = localStorage.getItem('currentUser')
+    setIsAuthenticated(!!user)
+    
+    // Check URL for register view
     const urlParams = new URLSearchParams(window.location.search)
-    const view = urlParams.get('view')
-    if (view === 'register') {
+    if (urlParams.get('view') === 'register') {
       setIsLogin(false)
     }
-
-    const user = localStorage.getItem('user')
-    setIsAuthenticated(!!user)
   }, [])
 
   const handleAuthSuccess = () => {
@@ -251,6 +259,7 @@ function App() {
         <AuthForm 
           isLogin={isLogin} 
           onSuccess={handleAuthSuccess}
+          onSwitch={isLogin ? switchToRegister : switchToLogin}
         />
       )}
     </div>
