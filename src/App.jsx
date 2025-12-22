@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react'; // Simplified import
 import { databaseAPI } from './api/database.js';
-import Dashboard from './components/Dashboard'; 
+import Dashboard from './components/Dashboard';
 import './App.css';
 
 const AuthForm = ({ isLogin, onSuccess, onSwitch }) => {
-  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
+  // Use React. prefix to guarantee they are defined
+  const [formData, setFormData] = React.useState({ email: '', password: '', confirmPassword: '' });
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [debugInfo, setDebugInfo] = React.useState('');
 
   const testDatabase = async () => {
     setDebugInfo('Testing connection...');
@@ -64,10 +65,7 @@ const AuthForm = ({ isLogin, onSuccess, onSwitch }) => {
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
       <div style={{ background: 'white', padding: '3rem', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', 
                     textAlign: 'center', maxWidth: '400px', width: '100%' }}>
-        
-        <h2 style={{ color: '#4a5568', marginBottom: '0.5rem' }}>{isLogin ? 'Login to FitFiddle' : 'Join FitFiddle'}</h2>
-        <p style={{ color: '#718096', marginBottom: '2rem' }}>Musical Fitness App</p>
-        
+        <h2 style={{ color: '#4a5568', marginBottom: '0.5rem' }}>{isLogin ? 'Login' : 'Join'} FitFiddle</h2>
         {error && <div style={{ background: '#fed7d7', color: '#c53030', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem' }}>{error}</div>}
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -99,35 +97,26 @@ const AuthForm = ({ isLogin, onSuccess, onSwitch }) => {
           )}
           <button type="submit" style={{ 
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white', border: 'none', padding: '1rem', borderRadius: '12px',
-            fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer'
+            color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: 'pointer'
           }} disabled={loading}>
             {loading ? 'Loading...' : (isLogin ? 'Login' : 'Register')}
           </button>
         </form>
-
-        <button onClick={testDatabase} style={{ marginTop: '1rem', background: 'none', border: 'none', color: '#a0aec0', fontSize: '0.8rem', cursor: 'pointer' }}>
-          Debug Connection
-        </button>
         
-        <div style={{ marginTop: '1.5rem', color: '#718096' }}>
-          {isLogin ? (
-            <p>Don't have an account? <button onClick={onSwitch} style={{ background: 'none', border: 'none', color: '#667eea', cursor: 'pointer', fontWeight: '600' }}>Register</button></p>
-          ) : (
-            <p>Already have an account? <button onClick={onSwitch} style={{ background: 'none', border: 'none', color: '#667eea', cursor: 'pointer', fontWeight: '600' }}>Login</button></p>
-          )}
-        </div>
+        <button onClick={onSwitch} style={{ marginTop: '1.5rem', background: 'none', border: 'none', color: '#667eea', cursor: 'pointer' }}>
+          {isLogin ? "Need an account? Register" : "Have an account? Login"}
+        </button>
       </div>
     </div>
   );
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [isLogin, setIsLogin] = React.useState(true);
+  const [currentUser, setCurrentUser] = React.useState(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === 'register') {
       setIsLogin(false);
@@ -139,15 +128,10 @@ function App() {
     setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-  };
-
   return (
     <div className="App">
       {isAuthenticated ? (
-        <Dashboard currentUser={currentUser} onLogout={handleLogout} />
+        <Dashboard currentUser={currentUser} onLogout={() => setIsAuthenticated(false)} />
       ) : (
         <AuthForm 
           isLogin={isLogin} 
