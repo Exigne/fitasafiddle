@@ -22,22 +22,28 @@ export const handler = async (event) => {
   const method = event.httpMethod;
 
   try {
-    if (method === 'GET') {
-      // Query the CORRECT table - workout_logs (not workouts)
-      const workoutLogs = await sql`SELECT * FROM workout_logs ORDER BY created_at DESC`;
-      const users = await sql`SELECT email, display_name, profile_pic FROM users`;
-      
-      console.log('Workout logs from database:', workoutLogs); // Debug log
+if (method === 'GET') {
+  const workoutLogs = await sql`SELECT * FROM workout_logs ORDER BY created_at DESC`;
+  const users = await sql`SELECT email, display_name, profile_pic FROM users`;
+  
+  const formattedWorkouts = workoutLogs.map(w => ({
+    id: w.id,
+    workout_id: w.workout_id,
+    user_email: w.user_email, // You might need to add this column or join with workouts table
+    created_at: w.created_at,
+    ex_name: w.exercise_name,
+    ex_weight: w.weight || 0,
+    ex_sets: w.sets || 0,
+    ex_reps: w.reps || 0,
+    muscle_group: w.muscle_group
+  }));
 
-      return {
-        statusCode: 200,
-        headers: getCorsHeaders(),
-        body: JSON.stringify({ 
-          workoutLogs: workoutLogs, // Return workout_logs directly
-          users: users 
-        }),
-      };
-    }
+  return {
+    statusCode: 200,
+    headers: getCorsHeaders(),
+    body: JSON.stringify({ workouts: formattedWorkouts, users }),
+  };
+}
 
     if (method === 'POST') {
       const body = JSON.parse(event.body || '{}');
