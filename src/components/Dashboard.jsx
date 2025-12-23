@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Dumbbell, Calendar, Heart, Sparkles, Trash2, X, Trophy, Medal, User, Camera, Target, Zap, Wind } from 'lucide-react';
+import { Dumbbell, Calendar, Heart, Sparkles, Trash2, X, Trophy, Medal, User, Camera, Target, Zap, Wind, LogOut } from 'lucide-react';
 
 const EXERCISES = {
   strength: { 'Bench Press': 'Chest', 'Squat': 'Legs', 'Deadlift': 'Back', 'Overhead Press': 'Shoulders', 'Rows': 'Back', 'Bicep Curls': 'Arms' },
@@ -11,29 +11,25 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [allData, setAllData] = useState({ workouts: [], users: [] });
   const [isLogging, setIsLogging] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
   const [workoutType, setWorkoutType] = useState('strength');
   const [loading, setLoading] = useState(true);
   
-  const [profileName, setProfileName] = useState('');
-  const [profilePic, setProfilePic] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Input States
   const [selectedEx, setSelectedEx] = useState('Bench Press');
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const loadData = useCallback(async () => {
     try {
       const res = await fetch(`/.netlify/functions/database`);
       const data = await res.json();
       setAllData(data || { workouts: [], users: [] });
-      const curr = data?.users?.find(u => u.email === user?.email);
-      if (curr) { setProfileName(curr.display_name || ''); setProfilePic(curr.profile_pic || ''); }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Load error:", e); }
     finally { setLoading(false); }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('fitnessUser');
@@ -42,6 +38,11 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => { if (user) loadData(); }, [user, loadData]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('fitnessUser');
+    setUser(null);
+  };
 
   const finishWorkout = async () => {
     setIsLogging(false);
@@ -54,25 +55,18 @@ const Dashboard = () => {
     loadData();
   };
 
-  const deleteWorkout = async (id) => {
-    if (window.confirm("Delete?")) {
-      await fetch(`/.netlify/functions/database?workoutId=${id}`, { method: 'DELETE' });
-      loadData();
-    }
-  };
-
   const stats = (() => {
     const myLogs = allData?.workouts?.filter(w => w.user_email === user?.email) || [];
     const muscleSplit = { Chest: 0, Legs: 0, Back: 0, Shoulders: 0, Arms: 0, Cardio: 0, Flexibility: 0 };
     const pbs = {};
 
     myLogs.forEach(w => {
-      const ex = Array.isArray(w.exercises) ? w.exercises[0] : w.exercises;
+      const ex = w.exercises?.[0];
       if (ex) {
-        const name = ex.exercise_name || ex.name || "Workout";
+        const name = ex.exercise_name || "Workout";
         const group = EXERCISES.strength[name] || EXERCISES.cardio[name] || EXERCISES.stretch[name];
         if (group) muscleSplit[group]++;
-        if (ex.weight && (!pbs[name] || ex.weight > pbs[name])) pbs[name] = ex.weight;
+        if (ex.weight > (pbs[name] || 0)) pbs[name] = ex.weight;
       }
     });
 
@@ -81,7 +75,7 @@ const Dashboard = () => {
       return acc;
     }, {})).map(([email, count]) => {
       const u = allData?.users?.find(usr => usr.email === email);
-      return { email, count, name: u?.display_name || email.split('@')[0], pic: u?.profile_pic };
+      return { name: u?.display_name || email.split('@')[0], count };
     }).sort((a,b) => b.count - a.count);
 
     return { myLogs, muscleSplit, pbs, league };
@@ -91,7 +85,7 @@ const Dashboard = () => {
     <div style={styles.container}>
       <div style={styles.authCard}>
         <Sparkles size={40} color="#6366f1" />
-        <h2>Fit as a Fiddle</h2>
+        <h2 style={{margin:'20px 0'}}>Fit as a Fiddle</h2>
         <input style={styles.input} placeholder="Email" onChange={e => setEmail(e.target.value)} />
         <input style={styles.input} type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} />
         <button style={styles.mainBtn} onClick={async () => {
@@ -104,23 +98,20 @@ const Dashboard = () => {
 
   return (
     <div style={styles.container}>
+      {/* HEADER WITH LOGOUT */}
       <div style={styles.header}>
         <h1 style={styles.brandTitle}>Fit as a Fiddle</h1>
-        <div style={styles.profileTrigger} onClick={() => setShowProfile(true)}>
-          <div style={{textAlign:'right', marginRight:'12px'}}>
-            <div style={{fontSize:'10px', color:'#94a3b8'}}>MY PROFILE</div>
-            <div style={{fontWeight:'bold'}}>{profileName || user.email.split('@')[0]}</div>
-          </div>
-          {profilePic ? <img src={profilePic} style={styles.avatar} alt="P" /> : <div style={styles.avatar}><User size={18}/></div>}
-        </div>
+        <button onClick={handleLogout} style={styles.logoutBtn}>
+          <LogOut size={16} /> Sign Out
+        </button>
       </div>
 
       <div style={styles.gridTop}>
         <div style={styles.card}>
           <div style={styles.cardHeader}><Target size={18} color="#6366f1" /><h3>Personal Bests</h3></div>
-          {Object.entries(stats.pbs).slice(0, 4).map(([name, val]) => (
-            <div key={name} style={styles.itemRow}><span>{name}</span><span style={{color:'#6366f1', fontWeight:'bold'}}>{val}kg</span></div>
-          ))}
+          {Object.entries(stats.pbs).length > 0 ? Object.entries(stats.pbs).slice(0, 4).map(([name, val]) => (
+            <div key={name} style={styles.row}><span>{name}</span><span style={{color:'#6366f1', fontWeight:'bold'}}>{val}kg</span></div>
+          )) : <div style={styles.empty}>No records yet</div>}
         </div>
         <div style={styles.card}>
           <div style={styles.cardHeader}><Zap size={18} color="#fbbf24" /><h3>Muscle Balance</h3></div>
@@ -140,12 +131,15 @@ const Dashboard = () => {
             {stats.myLogs.map((w, i) => (
               <div key={i} style={styles.historyItem}>
                 <span style={styles.dateText}>{new Date(w.created_at).toLocaleDateString(undefined, {day:'numeric', month:'short'})}</span>
-                <span style={{flex:1}}>{(Array.isArray(w.exercises) ? w.exercises[0] : w.exercises)?.exercise_name || "Workout"}</span>
+                <span style={{flex:1, fontWeight:'500'}}>{w.exercises?.[0]?.exercise_name || "Workout"}</span>
                 <div style={{textAlign:'right', marginRight:'15px'}}>
-                   <div style={{fontWeight:'bold', color:'#6366f1'}}>{(Array.isArray(w.exercises) ? w.exercises[0] : w.exercises)?.weight || 0}kg</div>
-                   <div style={{fontSize:'10px', color:'#94a3b8'}}>{(Array.isArray(w.exercises) ? w.exercises[0] : w.exercises)?.sets || 0} x {(Array.isArray(w.exercises) ? w.exercises[0] : w.exercises)?.reps || 0}</div>
+                   <div style={{fontWeight:'bold', color:'#6366f1'}}>{w.exercises?.[0]?.weight || 0}kg</div>
+                   <div style={{fontSize:'10px', color:'#94a3b8'}}>{w.exercises?.[0]?.sets || 0} x {w.exercises?.[0]?.reps || 0}</div>
                 </div>
-                <Trash2 size={14} color="#ef4444" style={{cursor:'pointer'}} onClick={() => deleteWorkout(w.id)} />
+                <Trash2 size={14} color="#ef4444" style={{cursor:'pointer'}} onClick={async () => {
+                   await fetch(`/.netlify/functions/database?workoutId=${w.id}`, { method: 'DELETE' });
+                   loadData();
+                }} />
               </div>
             ))}
           </div>
@@ -157,7 +151,6 @@ const Dashboard = () => {
             {stats.league.map((entry, i) => (
               <div key={i} style={styles.leagueItem}>
                 <div style={styles.rankCircle}>{i+1}</div>
-                {entry.pic ? <img src={entry.pic} style={styles.smallAvatar} alt="u" /> : <div style={styles.smallAvatar}><User size={12}/></div>}
                 <div style={{flex:1}}>{entry.name}</div>
                 <div style={{fontSize:'12px', color:'#94a3b8'}}>{entry.count} sessions</div>
               </div>
@@ -172,29 +165,10 @@ const Dashboard = () => {
         <button onClick={() => {setWorkoutType('stretch'); setIsLogging(true); setSelectedEx('Yoga')}} style={{...styles.fab, background:'#10b981'}}><Wind size={18}/> Stretch</button>
       </div>
 
-      {showProfile && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <div style={styles.modalHeader}><h3>Profile Settings</h3><X onClick={()=>setShowProfile(false)} style={{cursor:'pointer'}}/></div>
-            <div style={{textAlign:'center'}}>
-              <div style={styles.avatarLarge}>
-                {profilePic ? <img src={profilePic} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <Camera size={40} color="#334155"/>}
-              </div>
-              <input style={styles.input} placeholder="Display Name" value={profileName} onChange={e=>setProfileName(e.target.value)} />
-              <input style={styles.input} placeholder="Image URL" value={profilePic} onChange={e=>setProfilePic(e.target.value)} />
-              <button style={styles.mainBtn} onClick={async () => {
-                await fetch('/.netlify/functions/database', { method:'POST', body:JSON.stringify({action:'update_profile', email:user.email, displayName:profileName, profilePic}) });
-                setShowProfile(false); loadData();
-              }}>Update Profile</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {isLogging && (
          <div style={styles.modalOverlay}>
             <div style={styles.modalContent}>
-               <div style={styles.modalHeader}><h3>New {workoutType}</h3><X onClick={()=>setIsLogging(false)} style={{cursor:'pointer'}}/></div>
+               <div style={styles.modalHeader}><h3>Log {workoutType}</h3><X onClick={()=>setIsLogging(false)} style={{cursor:'pointer'}}/></div>
                <select style={styles.input} value={selectedEx} onChange={e=>setSelectedEx(e.target.value)}>
                   {Object.keys(EXERCISES[workoutType]).map(ex => <option key={ex} value={ex}>{ex}</option>)}
                </select>
@@ -203,7 +177,7 @@ const Dashboard = () => {
                   <div><label style={styles.label}>REPS</label><input style={styles.input} type="number" value={reps} onChange={e=>setReps(e.target.value)} /></div>
                   <div><label style={styles.label}>KG</label><input style={styles.input} type="number" value={weight} onChange={e=>setWeight(e.target.value)} /></div>
                </div>
-               <button style={styles.mainBtn} onClick={finishWorkout}>Save Workout</button>
+               <button style={styles.mainBtn} onClick={finishWorkout}>Finish & Save to Neon</button>
             </div>
          </div>
       )}
@@ -215,20 +189,16 @@ const styles = {
   container: { minHeight: '100vh', background: '#0a0f1d', color: '#f8fafc', padding: '40px', fontFamily: 'sans-serif' },
   header: { display:'flex', justifyContent:'space-between', marginBottom:'40px', alignItems:'center' },
   brandTitle: { color:'#6366f1', margin:0, fontWeight:'900', fontSize:'28px' },
-  profileTrigger: { display:'flex', alignItems:'center', cursor:'pointer', padding:'8px 16px', borderRadius:'15px', background:'rgba(255,255,255,0.03)' },
-  avatar: { width:'40px', height:'40px', borderRadius:'50%', background:'#1e293b', overflow:'hidden', border:'2px solid #6366f1' },
-  avatarLarge: { width:'100px', height:'100px', borderRadius:'50%', background:'#1e293b', margin:'0 auto 20px', overflow:'hidden', border:'3px solid #6366f1' },
-  smallAvatar: { width:'30px', height:'30px', borderRadius:'50%', background:'#0a0f1d', overflow:'hidden' },
   gridTop: { display:'grid', gridTemplateColumns:'1fr 1fr', gap:'25px', marginBottom:'25px' },
   gridBottom: { display:'grid', gridTemplateColumns:'1fr 1fr', gap:'25px', paddingBottom:'100px' },
   card: { background:'#161d2f', padding:'25px', borderRadius:'25px', border:'1px solid rgba(255,255,255,0.05)' },
   cardHeader: { display:'flex', gap:'10px', alignItems:'center', marginBottom:'20px' },
-  itemRow: { display:'flex', justifyContent:'space-between', padding:'10px', background:'rgba(255,255,255,0.02)', borderRadius:'10px', marginBottom:'8px' },
+  row: { display:'flex', justifyContent:'space-between', padding:'12px', background:'rgba(255,255,255,0.02)', borderRadius:'12px', marginBottom:'8px' },
   balanceRow: { display:'flex', alignItems:'center', gap:'15px', marginBottom:'12px' },
   groupLabel: { width:'80px', fontSize:'11px', color:'#94a3b8' },
   barBg: { flex:1, height:'6px', background:'#0a0f1d', borderRadius:'10px' },
-  barFill: { height:'100%', background:'#6366f1', borderRadius:'10px' },
-  scrollArea: { maxHeight:'350px', overflowY:'auto' },
+  barFill: { height:'100%', background:'#6366f1', borderRadius:'10px', transition: 'width 0.3s ease' },
+  scrollArea: { maxHeight:'400px', overflowY:'auto' },
   historyItem: { display:'flex', padding:'15px', background:'rgba(255,255,255,0.02)', borderRadius:'15px', marginBottom:'10px', alignItems:'center' },
   dateText: { color:'#6366f1', fontWeight:'bold', width:'65px', fontSize:'12px' },
   leagueItem: { display:'flex', alignItems:'center', gap:'15px', padding:'12px', background:'rgba(255,255,255,0.02)', borderRadius:'12px', marginBottom:'10px' },
@@ -242,7 +212,9 @@ const styles = {
   inputGrid: { display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'15px' },
   input: { width:'100%', padding:'14px', borderRadius:'12px', background:'#0a0f1d', color:'#fff', border:'1px solid #1e293b', marginBottom:'15px', boxSizing:'border-box' },
   mainBtn: { width:'100%', padding:'16px', background:'#6366f1', color:'#fff', border:'none', borderRadius:'12px', fontWeight:'bold', cursor:'pointer' },
-  authCard: { maxWidth:'380px', margin:'100px auto', background:'#161d2f', padding:'40px', borderRadius:'30px', textAlign:'center' }
+  logoutBtn: { background:'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer', display:'flex', alignItems:'center', gap:'8px', fontSize:'14px', fontWeight:'600' },
+  authCard: { maxWidth:'380px', margin:'100px auto', background:'#161d2f', padding:'40px', borderRadius:'30px', textAlign:'center' },
+  empty: { textAlign:'center', color:'#475569', padding:'20px', fontSize:'14px' }
 };
 
 export default Dashboard;
