@@ -15,8 +15,15 @@ const Dashboard = () => {
   const [allWorkouts, setAllWorkouts] = useState([]);
   const [isLogging, setIsLogging] = useState(false);
   const [workoutType, setWorkoutType] = useState('strength');
-  const [currentEx, setCurrentEx] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Input states for logging
+  const [selectedEx, setSelectedEx] = useState('');
+  const [sets, setSets] = useState('');
+  const [reps, setReps] = useState('');
+  const [weight, setWeight] = useState('');
+
+  // Auth states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isReg, setIsReg] = useState(false);
@@ -38,6 +45,30 @@ const Dashboard = () => {
 
   useEffect(() => { if (user) loadData(); }, [user, loadData]);
 
+  const finishWorkout = async () => {
+    if (!selectedEx) return alert("Select an exercise first");
+    setLoading(true);
+    
+    const exerciseData = {
+      exercise_name: selectedEx,
+      sets: sets || 1,
+      reps: reps || 0,
+      weight: weight || 0
+    };
+
+    await fetch('/.netlify/functions/database', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        userEmail: user.email, 
+        exercises: [exerciseData] 
+      })
+    });
+    
+    setIsLogging(false);
+    setSelectedEx(''); setSets(''); setReps(''); setWeight('');
+    loadData();
+  };
+
   const handleAuth = async () => {
     setLoading(true);
     const res = await fetch('/.netlify/functions/database', {
@@ -52,18 +83,6 @@ const Dashboard = () => {
     setLoading(false);
   };
 
-  const finishWorkout = async () => {
-    if (currentEx.length === 0) return;
-    setLoading(true);
-    await fetch('/.netlify/functions/database', {
-      method: 'POST',
-      body: JSON.stringify({ userEmail: user.email, exercises: currentEx })
-    });
-    setIsLogging(false);
-    setCurrentEx([]);
-    loadData();
-  };
-
   const deleteWorkout = async (id) => {
     if (!window.confirm("Delete session?")) return;
     await fetch(`/.netlify/functions/database?workoutId=${id}`, { method: 'DELETE' });
@@ -72,7 +91,6 @@ const Dashboard = () => {
 
   const stats = (() => {
     const myLogs = allWorkouts.filter(w => w.user_email === user?.email);
-    const pbs = {};
     const muscleSplit = { Chest: 0, Legs: 0, Back: 0, Shoulders: 0, Arms: 0, Cardio: 0, Flexibility: 0 };
     
     myLogs.forEach(w => {
@@ -114,20 +132,19 @@ const Dashboard = () => {
       <div style={styles.header}>
         <div>
           <h1 style={styles.brandTitle}>Fit as a Fiddle</h1>
-          <p style={styles.greeting}>Connected to Neon Database</p>
+          <p style={styles.greeting}>Live Neon Database connected</p>
         </div>
         <div style={styles.topRightWidget}>
           <div style={{textAlign: 'right'}}>
-            <div style={styles.weatherDate}>{new Date().toLocaleDateString().toUpperCase()}</div>
-            <div style={styles.weatherStatus}>Neon Live: Active</div>
+            <div style={styles.weatherDate}>{new Date().toLocaleDateString(undefined, {weekday: 'long', day:'numeric', month:'short'}).toUpperCase()}</div>
+            <div style={styles.weatherStatus}>Peak strength hours</div>
           </div>
           <div style={styles.weatherIcon}><Sun size={18} color="#fbbf24" /></div>
-          <button onClick={() => {setUser(null); localStorage.removeItem('fitnessUser');}} style={styles.logoutBtn}>Logout</button>
+          <button onClick={() => {setUser(null); localStorage.removeItem('fitnessUser');}} style={styles.logoutBtn}>Sign Out</button>
         </div>
       </div>
 
       <div style={styles.mainGrid}>
-        {/* Insights Section */}
         <div style={styles.card}>
           <div style={styles.cardHeader}><Target size={18} color="#6366f1" /><h3>Quick Stats</h3></div>
           <div style={styles.pbItem}><span>Total Sessions</span><span style={{color: '#6366f1', fontWeight: 'bold'}}>{stats.myLogs.length}</span></div>
@@ -135,7 +152,7 @@ const Dashboard = () => {
         </div>
 
         <div style={styles.card}>
-          <div style={styles.cardHeader}><Zap size={18} color="#fbbf24" /><h3>Muscle Focus</h3></div>
+          <div style={styles.cardHeader}><Zap size={18} color="#fbbf24" /><h3>Muscle Balance</h3></div>
           {Object.entries(stats.muscleSplit).map(([group, count]) => (
             <div key={group} style={styles.balanceRow}>
               <span style={{fontSize: '11px', width: '75px', color: '#94a3b8'}}>{group}</span>
@@ -144,16 +161,15 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* BOTTOM SPLIT SECTION */}
         <div style={styles.splitGrid}>
           <div style={styles.card}>
             <div style={styles.cardHeader}><Calendar size={18} color="#6366f1" /><h3>Your History</h3></div>
             <div style={styles.scrollList}>
               {stats.myLogs.length > 0 ? stats.myLogs.map((w, i) => (
                 <div key={i} style={styles.sessionItem}>
-                  <div style={{display: 'flex', gap: '15px'}}>
-                    <span style={styles.sessionDate}>{new Date(w.created_at).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
-                    <span style={{color: '#94a3b8'}}>{w.exercises?.[0]?.exercise_name || 'Workout'}</span>
+                  <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
+                    <span style={styles.sessionDate}>{new Date(w.created_at).toLocaleDateString(undefined, {day:'numeric', month:'short'})}</span>
+                    <span style={{color: '#fff', fontSize: '14px'}}>{w.exercises?.[0]?.exercise_name || 'Workout'}</span>
                   </div>
                   <button onClick={() => deleteWorkout(w.id)} style={{background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer'}}><Trash2 size={14}/></button>
                 </div>
@@ -180,23 +196,43 @@ const Dashboard = () => {
       </div>
 
       <div style={styles.fabContainer}>
-        <button onClick={() => {setWorkoutType('strength'); setIsLogging(true)}} style={{...styles.fab, background: '#6366f1'}}><Dumbbell size={18}/> Strength</button>
-        <button onClick={() => {setWorkoutType('cardio'); setIsLogging(true)}} style={{...styles.fab, background: '#ec4899'}}><Heart size={18}/> Cardio</button>
-        <button onClick={() => {setWorkoutType('stretch'); setIsLogging(true)}} style={{...styles.fab, background: '#10b981'}}><Wind size={18}/> Stretch</button>
+        <button onClick={() => {setWorkoutType('strength'); setIsLogging(true); setSelectedEx('Bench Press')}} style={{...styles.fab, background: '#6366f1'}}><Dumbbell size={18}/> Strength</button>
+        <button onClick={() => {setWorkoutType('cardio'); setIsLogging(true); setSelectedEx('Running')}} style={{...styles.fab, background: '#ec4899'}}><Heart size={18}/> Cardio</button>
       </div>
 
       {isLogging && (
         <div style={styles.modalOverlay}>
           <div style={styles.workoutPanel}>
             <div style={styles.workoutHeader}>
-              <h3>Log {workoutType}</h3>
+              <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                <Dumbbell size={20} color="#6366f1" />
+                <h3 style={{margin:0}}>New {workoutType} Session</h3>
+              </div>
               <button onClick={() => setIsLogging(false)} style={styles.textBtn}><X /></button>
             </div>
-            <select style={styles.input} onChange={(e) => setCurrentEx([{exercise_name: e.target.value}])}>
-              <option>Select Exercise...</option>
-              {Object.keys(EXERCISES[workoutType]).map(ex => <option key={ex}>{ex}</option>)}
-            </select>
-            <button style={styles.mainBtn} onClick={finishWorkout}>Finish & Save to Neon</button>
+            
+            <div style={{display:'flex', flexDirection:'column', gap:'15px'}}>
+              <div>
+                <label style={styles.label}>EXERCISE</label>
+                <select style={styles.input} value={selectedEx} onChange={(e) => setSelectedEx(e.target.value)}>
+                  {Object.keys(EXERCISES[workoutType]).map(ex => <option key={ex} value={ex}>{ex}</option>)}
+                </select>
+              </div>
+
+              {workoutType === 'strength' && (
+                <div style={styles.inputGrid}>
+                  <div><label style={styles.label}>SETS</label><input type="number" style={styles.input} value={sets} onChange={e=>setSets(e.target.value)} /></div>
+                  <div><label style={styles.label}>REPS</label><input type="number" style={styles.input} value={reps} onChange={e=>setReps(e.target.value)} /></div>
+                  <div><label style={styles.label}>KG</label><input type="number" style={styles.input} value={weight} onChange={e=>setWeight(e.target.value)} /></div>
+                </div>
+              )}
+
+              {workoutType === 'cardio' && (
+                <div><label style={styles.label}>DURATION (MIN)</label><input type="number" style={styles.input} value={reps} onChange={e=>setReps(e.target.value)} /></div>
+              )}
+
+              <button style={styles.mainBtn} onClick={finishWorkout}>Finish & Save to Neon</button>
+            </div>
           </div>
         </div>
       )}
@@ -212,7 +248,7 @@ const styles = {
   topRightWidget: { display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' },
   weatherDate: { fontSize: '10px', color: '#94a3b8' },
   weatherStatus: { fontSize: '12px', color: '#fff' },
-  logoutBtn: { color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' },
+  logoutBtn: { color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' },
   mainGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', paddingBottom: '100px' },
   splitGrid: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' },
   card: { background: '#161d2f', padding: '24px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.03)' },
@@ -228,11 +264,13 @@ const styles = {
   rankCircle: { width: '28px', height: '28px', background: '#0a0f1d', borderRadius: '50%', textAlign: 'center', lineHeight: '28px', fontSize: '12px' },
   fabContainer: { position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '15px' },
   fab: { padding: '14px 24px', borderRadius: '20px', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', gap: '10px', fontWeight: 'bold' },
-  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  workoutPanel: { background: '#161d2f', padding: '30px', borderRadius: '25px', width: '350px' },
-  workoutHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px' },
-  input: { width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '10px', background: '#0a0f1d', color: '#fff', border: '1px solid #1e293b' },
-  mainBtn: { width: '100%', padding: '14px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' },
+  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  workoutPanel: { background: '#161d2f', padding: '30px', borderRadius: '25px', width: '90%', maxWidth: '420px', border: '1px solid rgba(255,255,255,0.1)' },
+  workoutHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '25px', alignItems: 'center' },
+  label: { fontSize: '11px', color: '#64748b', fontWeight: 'bold', marginBottom: '8px', display: 'block' },
+  inputGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' },
+  input: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0a0f1d', color: '#fff', border: '1px solid #1e293b', boxSizing: 'border-box' },
+  mainBtn: { width: '100%', padding: '16px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer' },
   textBtn: { background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' },
   authCard: { maxWidth: '380px', margin: '100px auto', background: '#161d2f', padding: '40px', borderRadius: '30px', textAlign: 'center' },
   emptyMsg: { color: '#475569', textAlign: 'center', padding: '40px' }
