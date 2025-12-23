@@ -46,21 +46,38 @@ const Dashboard = () => {
     setError(null);
     
     try {
+      console.log('=== DASHBOARD LOAD DATA START ===');
+      console.log('Fetching data for user:', user.email);
+      
       const res = await fetch(`/.netlify/functions/database`);
-      if (!res.ok) throw new Error('Failed to fetch data');
+      console.log('Response status:', res.status);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       
       const data = await res.json();
-      console.log('Database response:', data);
-      console.log('WorkoutLogs sample:', data.workoutLogs?.[0]);
+      console.log('Raw data received:', data);
+      console.log('WorkoutLogs received:', data.workoutLogs);
+      console.log('WorkoutLogs length:', data.workoutLogs?.length);
+      console.log('Users received:', data.users);
+      console.log('Users length:', data.users?.length);
+      
+      // Filter for current user
+      const userWorkouts = data.workoutLogs?.filter(log => log.user_email === user.email) || [];
+      console.log('Filtered workouts for current user:', userWorkouts.length);
+      console.log('First user workout:', userWorkouts[0]);
       
       setAllData({
         workouts: data.workouts || [],
         workoutLogs: data.workoutLogs || [],
         users: data.users || []
       });
+      
+      console.log('=== DASHBOARD LOAD DATA END ===');
     } catch (e) {
       console.error('Load data error:', e);
-      setError('Failed to load workout data');
+      setError('Failed to load workout data: ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -70,6 +87,7 @@ const Dashboard = () => {
     const saved = localStorage.getItem('fitnessUser');
     if (saved) {
       const userData = JSON.parse(saved);
+      console.log('Loaded user from localStorage:', userData);
       setUser(userData);
       setProfileForm({
         displayName: userData.display_name || userData.email.split('@')[0],
@@ -78,7 +96,10 @@ const Dashboard = () => {
     }
   }, []);
 
-  useEffect(() => { if (user) loadData(); }, [user, loadData]);
+  useEffect(() => { 
+    console.log('User changed, loading data...');
+    if (user) loadData(); 
+  }, [user, loadData]);
 
   useEffect(() => {
     setFormData({ sets: '', reps: '', weight: '', minutes: '', distance: '' });
@@ -153,26 +174,38 @@ const Dashboard = () => {
     setError(null);
     
     try {
+      console.log('=== AUTH START ===');
+      console.log('Attempting auth for:', email);
+      
       const res = await fetch('/.netlify/functions/database', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'auth', email, password }) 
       });
       
+      console.log('Auth response status:', res.status);
+      
       if (!res.ok) throw new Error('Authentication failed');
       
       const data = await res.json();
+      console.log('Auth response data:', data);
+      
       const userData = { 
         email: data.email,
         display_name: data.display_name || email.split('@')[0],
         profile_pic: data.profile_pic || ''
       };
+      
+      console.log('Setting user data:', userData);
       setUser(userData);
       localStorage.setItem('fitnessUser', JSON.stringify(userData));
+      
       setProfileForm({
         displayName: userData.display_name,
         profilePic: userData.profile_pic
       });
+      
+      console.log('=== AUTH END ===');
       
     } catch (e) {
       console.error('Auth error', e);
@@ -211,7 +244,7 @@ const Dashboard = () => {
       await loadData();
       
     } catch (e) {
-      console.error('Update profile error:', e);
+      console.error('Update profile error', e);
       setError('Failed to update profile');
     } finally {
       setLoading(false);
@@ -225,6 +258,7 @@ const Dashboard = () => {
     setError(null);
     
     try {
+      console.log('Deleting workout with id:', workoutId);
       const res = await fetch(`/.netlify/functions/database?workoutId=${workoutId}`, { 
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
@@ -232,6 +266,7 @@ const Dashboard = () => {
       
       if (!res.ok) throw new Error('Failed to delete workout');
       
+      console.log('Workout deleted successfully');
       await loadData();
       
     } catch (e) {
@@ -243,17 +278,29 @@ const Dashboard = () => {
   };
 
   const stats = (() => {
+    console.log('=== STATS CALCULATION START ===');
+    console.log('Input data - workoutLogs:', allData.workoutLogs?.length);
+    console.log('Input data - user:', user?.email);
+    
     if (!user || !allData?.workoutLogs) {
+      console.log('Stats returning empty - missing user or workoutLogs');
       return { myLogs: [], muscleSplit: {}, pbs: {}, league: [], profile: null };
     }
 
     const myLogs = allData.workoutLogs.filter(log => log.user_email === user.email) || [];
+    console.log('Filtered myLogs:', myLogs.length);
+    console.log('First few myLogs:', myLogs.slice(0, 3));
+    
     const muscleSplit = { Chest: 0, Legs: 0, Back: 0, Shoulders: 0, Arms: 0, Cardio: 0, Flexibility: 0 };
     const pbs = {};
 
-    myLogs.forEach(log => {
+    myLogs.forEach((log, index) => {
+      console.log(`Processing log ${index}:`, log);
+      
       const exerciseName = log.exercise_name || log.ex_name || 'Unknown';
       const muscleGroup = log.muscle_group || 'Other';
+      
+      console.log(`Exercise: ${exerciseName}, Muscle Group: ${muscleGroup}`);
       
       if (muscleGroup) {
         muscleSplit[muscleGroup] = (muscleSplit[muscleGroup] || 0) + 1;
@@ -266,6 +313,9 @@ const Dashboard = () => {
         }
       }
     });
+
+    console.log('Muscle split:', muscleSplit);
+    console.log('Personal bests:', pbs);
 
     const league = Object.entries((allData.workoutLogs || []).reduce((acc, log) => {
       acc[log.user_email] = (acc[log.user_email] || 0) + 1;
@@ -291,8 +341,34 @@ const Dashboard = () => {
       totalWeight: myLogs.reduce((sum, log) => sum + (log.weight || log.ex_weight || 0), 0)
     };
 
+    console.log('Profile stats:', profile);
+    console.log('=== STATS CALCULATION END ===');
+
     return { myLogs, muscleSplit, pbs, league, profile };
   })();
+
+  // Add debug panel for development
+  const DebugPanel = () => {
+    if (process.env.NODE_ENV !== 'development') return null;
+    
+    return (
+      <div style={styles.debugPanel}>
+        <h3>🐛 Debug Info</h3>
+        <div><strong>User:</strong> {user?.email || 'none'}</div>
+        <div><strong>WorkoutLogs:</strong> {allData.workoutLogs?.length || 0}</div>
+        <div><strong>My Logs:</strong> {stats.myLogs?.length || 0}</div>
+        <div><strong>Users:</strong> {allData.users?.length || 0}</div>
+        <div><strong>Stats Profile:</strong> {stats.profile ? 'exists' : 'null'}</div>
+        <button 
+          onClick={loadData} 
+          disabled={loading}
+          style={styles.debugButton}
+        >
+          {loading ? 'Loading...' : 'Force Reload'}
+        </button>
+      </div>
+    );
+  };
 
   if (!user) return (
     <div style={styles.container}>
@@ -322,6 +398,9 @@ const Dashboard = () => {
         >
           {loading ? 'Loading...' : 'Enter Dashboard'}
         </button>
+        <p style={{marginTop:'20px', color:'#94a3b8', fontSize:'13px'}}>
+          Don't have an account? Just enter your email and password to create one!
+        </p>
       </div>
     </div>
   );
@@ -347,6 +426,9 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
+
+      {/* Debug Panel - Only shows in development */}
+      <DebugPanel />
 
       {error && <div style={styles.errorBanner}>{error}</div>}
       {loading && <div style={styles.loadingBanner}>Loading...</div>}
@@ -598,7 +680,7 @@ const Dashboard = () => {
               style={styles.input}
               value={profileForm.profilePic}
               onChange={e => setProfileForm(prev => ({...prev, profilePic: e.target.value}))}
-              placeholder="https://example.com/avatar.jpg"
+              placeholder="https://example.com/avatar.jpg "
               disabled={loading}
             />
             <button 
@@ -619,6 +701,27 @@ const styles = {
   container: { minHeight: '100vh', background: '#0a0f1d', color: '#f8fafc', padding: '40px', fontFamily: 'sans-serif' },
   header: { display:'flex', justifyContent:'space-between', marginBottom:'40px', alignItems:'center' },
   brandTitle: { color:'#6366f1', margin:0, fontWeight:'900', fontSize:'28px' },
+  
+  // Debug Panel Styles
+  debugPanel: { 
+    background: 'rgba(255, 255, 0, 0.1)', 
+    border: '2px solid yellow', 
+    padding: '15px', 
+    marginBottom: '20px',
+    borderRadius: '8px',
+    fontSize: '12px',
+    color: 'yellow'
+  },
+  debugButton: {
+    background: 'yellow',
+    color: 'black',
+    border: 'none',
+    padding: '5px 10px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    marginTop: '10px',
+    fontSize: '11px'
+  },
   
   // Profile Section Styles
   profileSection: { marginBottom: '25px' },
@@ -653,8 +756,10 @@ const styles = {
   inputGrid: { display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'15px' },
   input: { width:'100%', padding:'16px', borderRadius:'16px', background:'#0a0f1d', color:'#fff', border:'1px solid #1e293b', marginBottom:'20px', boxSizing:'border-box' },
   mainBtn: { width:'100%', padding:'18px', background:'#6366f1', color:'#fff', border:'none', borderRadius:'18px', fontWeight:'bold', cursor:'pointer' },
+  profileBtn: { background:'rgba(99, 102, 241, 0.1)', color: '#6366f1', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.2)', cursor: 'pointer', display:'flex', alignItems:'center', gap:'8px', fontSize:'14px', fontWeight:'bold' },
   logoutBtn: { background:'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer', display:'flex', alignItems:'center', gap:'8px', fontSize:'14px', fontWeight:'bold' },
   authCard: { maxWidth:'400px', margin:'100px auto', background:'#161d2f', padding:'50px', borderRadius:'40px', textAlign:'center' },
+  avatarCircle: { width:'100px', height:'100px', borderRadius:'50%', background:'rgba(99, 102, 241, 0.1)', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:'3px solid #6366f1' },
   error: { color: '#ef4444', fontSize: '14px', marginBottom: '15px', textAlign: 'center' },
   errorBanner: { 
     background: 'rgba(239, 68, 68, 0.1)', 
