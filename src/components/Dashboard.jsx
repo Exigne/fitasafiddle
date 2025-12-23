@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Dumbbell, TrendingUp, Calendar, Heart, Sparkles, CheckCircle2, Trash2, Plus, X, Wind, Target, Zap, Trophy, Medal } from 'lucide-react';
+import { Activity, Dumbbell, TrendingUp, Calendar, Heart, Sparkles, CheckCircle2, Trash2, Plus, X, Wind, Target, Zap, Trophy, Medal, Cloud, Sun, Moon } from 'lucide-react';
 
 const EXERCISES = {
   strength: {
@@ -31,13 +31,13 @@ const AuthForm = ({ email, setEmail, password, setPassword, isRegistering, setIs
     <div style={styles.authHeader}>
       <div style={styles.logoContainer}><Sparkles size={40} color="#6366f1" /></div>
       <h1 style={styles.authTitle}>Fit as a Fiddle</h1>
-      <p style={styles.authSubtitle}>Join the league of elite trainers</p>
+      <p style={styles.authSubtitle}>Join the live neon-powered league</p>
     </div>
     <div style={styles.authForm}>
       <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={styles.authInput} />
       <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} style={styles.authInput} />
       <button onClick={handleAuth} style={styles.authButton} disabled={loading}>
-        {loading ? 'Processing...' : (isRegistering ? 'Create Account' : 'Sign In')}
+        {loading ? 'Connecting...' : (isRegistering ? 'Create Account' : 'Sign In')}
       </button>
       <button onClick={() => setIsRegistering(!isRegistering)} style={styles.toggleButton}>
         {isRegistering ? 'Already have an account? Login' : "Don't have an account? Register"}
@@ -114,7 +114,7 @@ const WorkoutPanel = ({ workoutType, setIsLoggingWorkout, currentExercises, setC
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
-  const [workouts, setWorkouts] = useState([]);
+  const [allWorkouts, setAllWorkouts] = useState([]); // Now stores ALL workouts for the league
   const [isLoggingWorkout, setIsLoggingWorkout] = useState(false);
   const [workoutType, setWorkoutType] = useState(null);
   const [currentExercises, setCurrentExercises] = useState([]);
@@ -128,15 +128,16 @@ const Dashboard = () => {
     if (saved) setUser(JSON.parse(saved));
   }, []);
 
-  const loadWorkouts = useCallback(async (uEmail) => {
+  // Fetch ALL workouts from Neon to build the league
+  const loadGlobalData = useCallback(async () => {
     try {
-      const res = await fetch(`/.netlify/functions/database?user=${encodeURIComponent(uEmail)}`);
+      const res = await fetch(`/.netlify/functions/database?league=true`);
       const data = await res.json();
-      setWorkouts(data.workouts || []);
+      setAllWorkouts(data.workouts || []);
     } catch (e) { console.error(e); }
   }, []);
 
-  useEffect(() => { if (user?.email) loadWorkouts(user.email); }, [user, loadWorkouts]);
+  useEffect(() => { if (user?.email) loadGlobalData(); }, [user, loadGlobalData]);
 
   const handleAuth = async () => {
     setLoading(true);
@@ -155,9 +156,9 @@ const Dashboard = () => {
   };
 
   const deleteWorkout = async (id) => {
-    if (!window.confirm("Delete this session?")) return;
+    if (!window.confirm("Delete?")) return;
     await fetch(`/.netlify/functions/database?workoutId=${id}`, { method: 'DELETE' });
-    loadWorkouts(user.email);
+    loadGlobalData();
   };
 
   const finishWorkout = async () => {
@@ -169,23 +170,44 @@ const Dashboard = () => {
       });
       setIsLoggingWorkout(false);
       setCurrentExercises([]);
-      loadWorkouts(user.email);
+      loadGlobalData();
     } finally { setLoading(false); }
   };
 
-  const insights = (() => {
+  const stats = (() => {
+    const myWorkouts = allWorkouts.filter(w => w.user_email === user?.email);
     const pbs = {};
     const muscleSplit = { Chest: 0, Legs: 0, Back: 0, Shoulders: 0, Arms: 0, Cardio: 0, Flexibility: 0 };
-    workouts.forEach(w => {
+    
+    myWorkouts.forEach(w => {
       w.exercises?.forEach(ex => {
         if (!pbs[ex.exercise_name] || ex.weight > pbs[ex.exercise_name]) pbs[ex.exercise_name] = ex.weight;
         if (muscleSplit[ex.group] !== undefined) muscleSplit[ex.group]++;
       });
     });
+
+    // League Logic: Group all sessions by user email
+    const leagueMap = allWorkouts.reduce((acc, w) => {
+      acc[w.user_email] = (acc[w.user_email] || 0) + 1;
+      return acc;
+    }, {});
+
+    const sortedLeague = Object.entries(leagueMap)
+      .map(([email, count]) => ({ email, count }))
+      .sort((a, b) => b.count - a.count);
+
     const topPBs = Object.entries(pbs).filter(([_, w]) => w > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
     const recommendation = Object.entries(muscleSplit).sort((a, b) => a[1] - b[1])[0][0];
-    return { topPBs, muscleSplit, recommendation };
+
+    return { myWorkouts, topPBs, muscleSplit, recommendation, sortedLeague };
   })();
+
+  const getTimeInfo = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { msg: "Perfect for morning cardio", icon: <Sun size={18} color="#fbbf24" /> };
+    if (hour < 18) return { msg: "Peak strength hours", icon: <Cloud size={18} color="#94a3b8" /> };
+    return { msg: "Good time for flexibility", icon: <Moon size={18} color="#6366f1" /> };
+  };
 
   if (!user) return <div style={styles.container}><AuthForm email={email} setEmail={setEmail} password={password} setPassword={setPassword} isRegistering={isRegistering} setIsRegistering={setIsRegistering} handleAuth={handleAuth} loading={loading} /></div>;
 
@@ -194,23 +216,31 @@ const Dashboard = () => {
       <div style={styles.header}>
         <div>
           <h1 style={styles.brandTitle}>Fit as a Fiddle</h1>
-          <p style={styles.greeting}>Focus: <span style={{color: '#fff', fontWeight: 'bold'}}>{insights.recommendation}</span> today</p>
+          <p style={styles.greeting}>Focus: <span style={{color: '#fff'}}>{stats.recommendation}</span></p>
         </div>
-        <button onClick={() => { setUser(null); localStorage.removeItem('fitnessUser'); }} style={styles.logoutBtn}>Sign Out</button>
+        
+        {/* NEW TOP RIGHT WIDGET */}
+        <div style={styles.weatherWidget}>
+          <div style={styles.weatherInfo}>
+            <span style={styles.weatherDate}>{new Date().toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'})}</span>
+            <span style={styles.weatherMsg}>{getTimeInfo().msg}</span>
+          </div>
+          <div style={styles.weatherIcon}>{getTimeInfo().icon}</div>
+          <button onClick={() => { setUser(null); localStorage.removeItem('fitnessUser'); }} style={styles.logoutBtn}>Sign Out</button>
+        </div>
       </div>
 
       <div style={styles.mainGrid}>
-        {/* Insights Section */}
         <div style={styles.card}>
           <div style={styles.cardHeader}><Target size={20} color="#6366f1" /><h3>Personal Bests</h3></div>
-          {insights.topPBs.map(([name, weight]) => (
+          {stats.topPBs.map(([name, weight]) => (
             <div key={name} style={styles.pbItem}><span>{name}</span><span style={{color: '#6366f1', fontWeight: 'bold'}}>{weight}kg</span></div>
           ))}
         </div>
 
         <div style={styles.card}>
           <div style={styles.cardHeader}><Zap size={20} color="#fbbf24" /><h3>Muscle Balance</h3></div>
-          {Object.entries(insights.muscleSplit).map(([group, count]) => (
+          {Object.entries(stats.muscleSplit).map(([group, count]) => (
             <div key={group} style={styles.balanceRow}>
               <span style={{fontSize: '11px', width: '75px'}}>{group}</span>
               <div style={styles.barContainer}><div style={{...styles.barFill, width: `${Math.min(100, count * 15)}%`}} /></div>
@@ -218,13 +248,12 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* BOTTOM SPLIT SECTION */}
         <div style={styles.splitGrid}>
-          {/* History (Left) */}
+          {/* Real Neon History */}
           <div style={styles.card}>
-            <div style={styles.cardHeader}><Calendar size={18} color="#6366f1" /><h3>Workout History</h3></div>
+            <div style={styles.cardHeader}><Calendar size={18} color="#6366f1" /><h3>Your History</h3></div>
             <div style={styles.scrollList}>
-              {workouts.slice(0, 10).map((w, i) => (
+              {stats.myWorkouts.slice(0, 10).map((w, i) => (
                 <div key={i} style={styles.sessionItem}>
                   <div style={{display: 'flex', gap: '12px'}}>
                     <span style={styles.sessionDate}>{new Date(w.created_at).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
@@ -236,17 +265,20 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* League (Right) */}
+          {/* Real Neon League */}
           <div style={styles.card}>
-            <div style={styles.cardHeader}><Trophy size={18} color="#fbbf24" /><h3>Workout League</h3></div>
+            <div style={styles.cardHeader}><Trophy size={18} color="#fbbf24" /><h3>Global League</h3></div>
             <div style={styles.scrollList}>
-              <div style={styles.leagueItem}>
-                <div style={styles.rankCircle}>1</div>
-                <div style={styles.leagueInfo}><span>{user.email.split('@')[0]} (You)</span><small>{workouts.length} Sessions</small></div>
-                <Medal size={16} color="#fbbf24" />
-              </div>
-              <div style={{...styles.leagueItem, opacity: 0.5}}><div style={styles.rankCircle}>2</div><div style={styles.leagueInfo}><span>PowerLifter99</span><small>14 Sessions</small></div></div>
-              <div style={{...styles.leagueItem, opacity: 0.5}}><div style={styles.rankCircle}>3</div><div style={styles.leagueInfo}><span>ZenMaster</span><small>9 Sessions</small></div></div>
+              {stats.sortedLeague.map((entry, i) => (
+                <div key={entry.email} style={{...styles.leagueItem, borderLeft: entry.email === user.email ? '4px solid #6366f1' : 'none'}}>
+                  <div style={styles.rankCircle}>{i + 1}</div>
+                  <div style={styles.leagueInfo}>
+                    <span>{entry.email.split('@')[0]} {entry.email === user.email && '(You)'}</span>
+                    <small>{entry.count} Sessions</small>
+                  </div>
+                  {i === 0 && <Medal size={16} color="#fbbf24" />}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -265,55 +297,46 @@ const Dashboard = () => {
 
 const styles = {
   container: { minHeight: '100vh', background: '#0f172a', color: '#f8fafc', padding: '25px', fontFamily: 'Inter, sans-serif' },
-  header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'center' },
+  header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'flex-start' },
   brandTitle: { color: '#6366f1', margin: 0, fontWeight: '800', fontSize: '24px' },
   greeting: { color: '#94a3b8', margin: '4px 0', fontSize: '14px' },
-  logoutBtn: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px 15px', borderRadius: '10px' },
   
+  weatherWidget: { display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.03)', padding: '10px 20px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
+  weatherInfo: { display: 'flex', flexDirection: 'column', textAlign: 'right' },
+  weatherDate: { fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase' },
+  weatherMsg: { fontSize: '12px', color: '#f1f5f9', fontWeight: '500' },
+  weatherIcon: { background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '10px' },
+  logoutBtn: { marginLeft: '10px', background: 'none', border: 'none', color: '#ef4444', fontSize: '11px', cursor: 'pointer', opacity: 0.7 },
+
   mainGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', paddingBottom: '100px' },
   splitGrid: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
-  
   card: { background: '#1e293b', padding: '20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' },
   cardHeader: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' },
-  
   pbItem: { display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#0f172a', borderRadius: '12px', marginBottom: '8px' },
   balanceRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' },
   barContainer: { flex: 1, height: '6px', background: '#0f172a', borderRadius: '3px' },
   barFill: { height: '100%', background: '#fbbf24', borderRadius: '3px' },
-  
   scrollList: { maxHeight: '250px', overflowY: 'auto' },
   sessionItem: { display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', marginBottom: '8px' },
   sessionDate: { color: '#6366f1', fontWeight: 'bold', fontSize: '13px' },
   deleteBtn: { background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' },
-
-  leagueItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(251, 191, 36, 0.05)', borderRadius: '12px', marginBottom: '8px' },
-  rankCircle: { width: '24px', height: '24px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' },
+  leagueItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', marginBottom: '8px' },
+  rankCircle: { width: '24px', height: '24px', borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold' },
   leagueInfo: { flex: 1, display: 'flex', flexDirection: 'column' },
-  
   fabContainer: { position: 'fixed', bottom: '25px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 10 },
-  fab: { padding: '12px 20px', borderRadius: '25px', border: 'none', color: '#fff', fontWeight: 'bold', display: 'flex', gap: '8px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', fontSize: '13px' },
-  
+  fab: { padding: '12px 20px', borderRadius: '25px', border: 'none', color: '#fff', fontWeight: 'bold', display: 'flex', gap: '8px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(0,0,0,0.3)' },
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   workoutPanel: { background: '#1e293b', padding: '25px', borderRadius: '25px', width: '90%', maxWidth: '400px' },
-  workoutHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' },
-  closeBtn: { background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' },
-  inputGrid: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  workoutHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px' },
   threeColRow: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' },
   input: { padding: '12px', background: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: '10px', width: '100%', boxSizing: 'border-box' },
   select: { padding: '12px', background: '#0f172a', color: '#fff', borderRadius: '10px', width: '100%', border: '1px solid #334155' },
   addButton: { padding: '12px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', border: '1px solid #6366f1', borderRadius: '10px', fontWeight: 'bold', marginTop: '5px' },
   finishButton: { width: '100%', padding: '14px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', marginTop: '10px' },
-  exerciseListContainer: { marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' },
-  listScroll: { maxHeight: '100px', overflowY: 'auto' },
-  exerciseItem: { display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px' },
-  
   authCard: { maxWidth: '380px', margin: '100px auto', background: '#1e293b', padding: '40px', borderRadius: '30px', textAlign: 'center' },
-  authHeader: { marginBottom: '25px' },
-  authTitle: { fontSize: '28px', color: '#6366f1', margin: '10px 0' },
-  authSubtitle: { color: '#94a3b8', fontSize: '14px' },
   authInput: { width: '100%', padding: '14px', margin: '8px 0', background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', color: '#fff', boxSizing: 'border-box' },
-  authButton: { width: '100%', padding: '14px', background: '#6366f1', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 'bold', fontSize: '16px', marginTop: '10px' },
-  toggleButton: { background: 'none', border: 'none', color: '#6366f1', marginTop: '20px', cursor: 'pointer', fontSize: '14px' }
+  authButton: { width: '100%', padding: '14px', background: '#6366f1', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 'bold' },
+  toggleButton: { background: 'none', border: 'none', color: '#6366f1', marginTop: '20px', cursor: 'pointer' }
 };
 
 export default Dashboard;
