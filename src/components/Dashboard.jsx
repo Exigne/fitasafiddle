@@ -3,8 +3,8 @@ import { Dumbbell, Calendar, Heart, Sparkles, Trash2, X, Trophy, User, Target, Z
 
 const EXERCISES = {
   strength: { 'Bench Press': 'Chest', 'Squat': 'Legs', 'Deadlift': 'Back', 'Overhead Press': 'Shoulders', 'Rows': 'Back', 'Bicep Curls': 'Arms' },
-  cardio: { 'Running': 'Cardio', 'Stair Climbing': 'Cardio', 'Cycling': 'Cardio', 'Swimming': 'Cardio' },
-  stretch: { 'Yoga': 'Flexibility', 'Mobility Work': 'Flexibility' }
+  cardio: { 'Running': 'Cardio', 'Stair Climbing': 'Cardio', 'Cycling': 'Cardio', 'Swimming': 'Cardio', 'Walking': 'Cardio', 'HIIT': 'Cardio', 'Sport-Based': 'Cardio' },
+  stretch: { 'Yoga': 'Flexibility', 'Calisthenics': 'Flexibility', 'Pilates': 'Flexibility', 'Tai Chi': 'Flexibility' }
 };
 
 const WORKOUT_CONFIGS = {
@@ -298,7 +298,7 @@ const Dashboard = () => {
     <div style={styles.container}>
       <div style={styles.authCard}>
         <Sparkles size={40} color="#6366f1" />
-        <h2 style={{margin:'20px 0'}}>Fit as a Fiddle</h2>
+        <h2 style={{margin:'20px 0'}}>Fit As A Fiddle</h2>
         {error && <div style={styles.error}>{error}</div>}
         <input 
           style={styles.input} 
