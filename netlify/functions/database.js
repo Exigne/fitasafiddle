@@ -10,7 +10,10 @@ export const handler = async (event) => {
       const users = await sql`SELECT email, display_name, profile_pic FROM users`;
       return {
         statusCode: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*" 
+        },
         body: JSON.stringify({ workouts: workouts || [], users: users || [] }),
       };
     }
@@ -18,6 +21,7 @@ export const handler = async (event) => {
     if (method === 'POST') {
       const body = JSON.parse(event.body || '{}');
 
+      // Update Profile
       if (body.action === 'update_profile') {
         await sql`
           UPDATE users 
@@ -27,23 +31,25 @@ export const handler = async (event) => {
         return { statusCode: 200, body: JSON.stringify({ success: true }) };
       }
 
+      // Auth Logic
       if (body.action === 'auth') {
-        const { email, password, isRegistering } = body;
+        const { email, password } = body;
         const users = await sql`SELECT * FROM users WHERE email = ${email}`;
-        if (isRegistering) {
-          if (users.length > 0) return { statusCode: 400, body: JSON.stringify({ error: 'User exists' }) };
+        if (users.length === 0) {
+          // Auto-register if user doesn't exist
           await sql`INSERT INTO users (email, password, display_name) VALUES (${email}, ${password}, ${email.split('@')[0]})`;
           return { statusCode: 200, body: JSON.stringify({ email }) };
-        } else {
-          if (users.length === 0 || users[0].password !== password) {
-            return { statusCode: 401, body: JSON.stringify({ error: 'Invalid login' }) };
-          }
-          return { statusCode: 200, body: JSON.stringify(users[0]) };
         }
+        if (users[0].password !== password) return { statusCode: 401, body: JSON.stringify({ error: 'Wrong password' }) };
+        return { statusCode: 200, body: JSON.stringify(users[0]) };
       }
 
+      // Workout Save Logic - Ensuring JSON format
       if (body.userEmail && body.exercises) {
-        await sql`INSERT INTO workouts (user_email, exercises) VALUES (${body.userEmail}, ${JSON.stringify(body.exercises)})`;
+        await sql`
+          INSERT INTO workouts (user_email, exercises, created_at) 
+          VALUES (${body.userEmail}, ${JSON.stringify(body.exercises)}::jsonb, NOW())
+        `;
         return { statusCode: 200, body: JSON.stringify({ message: "Saved" }) };
       }
     }
@@ -53,6 +59,7 @@ export const handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify({ message: "Deleted" }) };
     }
   } catch (err) {
+    console.error(err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
