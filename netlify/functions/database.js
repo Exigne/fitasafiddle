@@ -23,43 +23,19 @@ export const handler = async (event) => {
 
   try {
     if (method === 'GET') {
-      const workouts = await sql`SELECT * FROM workouts ORDER BY created_at DESC`;
+      // Query the CORRECT table - workout_logs (not workouts)
+      const workoutLogs = await sql`SELECT * FROM workout_logs ORDER BY created_at DESC`;
       const users = await sql`SELECT email, display_name, profile_pic FROM users`;
       
-      // Fixed data cleaning logic
-      const formattedWorkouts = workouts.map(w => {
-        let rawEx = w.exercises;
-        
-        // Handle different data formats
-        if (typeof rawEx === 'string') {
-          try { 
-            rawEx = JSON.parse(rawEx); 
-          } catch (e) { 
-            rawEx = []; 
-          }
-        }
-        
-        // Ensure it's an array
-        const exArray = Array.isArray(rawEx) ? rawEx : [rawEx];
-        
-        // Get first exercise safely
-        const first = exArray[0] || {};
-        
-        return {
-          id: w.id,
-          user_email: w.user_email,
-          created_at: w.created_at,
-          ex_name: first.exercise_name || first.name || "Workout",
-          ex_weight: first.weight || 0,
-          ex_sets: first.sets || 0,
-          ex_reps: first.reps || 0
-        };
-      });
+      console.log('Workout logs from database:', workoutLogs); // Debug log
 
       return {
         statusCode: 200,
         headers: getCorsHeaders(),
-        body: JSON.stringify({ workouts: formattedWorkouts, users }),
+        body: JSON.stringify({ 
+          workoutLogs: workoutLogs, // Return workout_logs directly
+          users: users 
+        }),
       };
     }
 
@@ -108,7 +84,22 @@ export const handler = async (event) => {
           };
         }
 
-        await sql`INSERT INTO workouts (user_email, exercises, created_at) VALUES (${body.userEmail}, ${JSON.stringify(body.exercises)}::jsonb, NOW())`;
+        // Insert into the CORRECT table - workout_logs
+        for (const exercise of body.exercises) {
+          await sql`
+            INSERT INTO workout_logs 
+            (user_email, exercise_name, muscle_group, sets, reps, weight, created_at) 
+            VALUES (
+              ${body.userEmail}, 
+              ${exercise.exercise_name}, 
+              ${exercise.muscle_group || 'Other'}, 
+              ${exercise.sets || 1}, 
+              ${exercise.reps || 0}, 
+              ${exercise.weight || 0}, 
+              NOW()
+            )
+          `;
+        }
         
         return {
           statusCode: 200,
@@ -136,7 +127,8 @@ export const handler = async (event) => {
         };
       }
 
-      await sql`DELETE FROM workouts WHERE id = ${parseInt(workoutId)}`;
+      // Delete from the CORRECT table - workout_logs
+      await sql`DELETE FROM workout_logs WHERE id = ${parseInt(workoutId)}`;
       
       return {
         statusCode: 200,
