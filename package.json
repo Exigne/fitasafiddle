@@ -20,7 +20,8 @@
     "@netlify/functions": "^2.4.0",
     "pg": "^8.11.0",
     "@neondatabase/serverless": "^0.10.4",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "lucide-react": "^0.263.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
