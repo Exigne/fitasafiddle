@@ -5,7 +5,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:debug": "vite build --debug",
+    "check:circular": "madge --circular src/",
+    "check:circular-ts": "madge --circular --ts-config ./tsconfig.json --extensions ts,tsx src/",
+    "check:deps": "madge --depends src/ --extensions js,jsx,ts,tsx",
+    "check:all": "npm run check:circular && npm run check:deps",
+    "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint src/ --ext .js,.jsx,.ts,.tsx --fix",
+    "analyze": "npx vite-bundle-analyzer",
+    "clean": "rm -rf dist node_modules/.vite",
+    "rebuild": "npm run clean && npm install && npm run build",
+    "serve": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -25,6 +36,42 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.0.10"
+    "vite": "^5.0.10",
+    "madge": "^6.1.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-import": "^2.29.1",
+    "@typescript-eslint/eslint-plugin": "^6.16.0",
+    "@typescript-eslint/parser": "^6.16.0",
+    "vite-bundle-analyzer": "^0.7.0",
+    "circular-dependency-plugin": "^5.2.2"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "madge": {
+    "detectiveOptions": {
+      "es6": {
+        "mixedImports": true
+      },
+      "ts": {
+        "skipAsyncImports": true,
+        "skipTypeImports": true
+      },
+      "tsx": {
+        "skipAsyncImports": true,
+        "skipTypeImports": true
+      }
+    }
   }
 }
