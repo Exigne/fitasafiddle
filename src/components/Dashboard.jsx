@@ -1,4 +1,4 @@
-// Fixed FitnessDashboard.jsx
+// Dashboard.jsx - Fixed version with proper styles definition
 import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, Dumbbell, TrendingUp, Calendar, Heart, Sparkles } from 'lucide-react';
 
@@ -77,7 +77,7 @@ const AuthForm = ({ email, setEmail, password, setPassword, isRegistering, setIs
 );
 
 // Separate workout panel component
-const WorkoutPanel = ({ workoutType, setIsLoggingWorkout, currentExercises, setCurrentExercises, finishWorkout, loading }) => {
+const WorkoutPanel = ({ workoutType, setIsLoggingWorkout, setWorkoutType, currentExercises, setCurrentExercises, finishWorkout, loading }) => {
   const [selectedExercise, setSelectedExercise] = useState('');
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
@@ -219,7 +219,7 @@ const WorkoutPanel = ({ workoutType, setIsLoggingWorkout, currentExercises, setC
 };
 
 // Main component with proper initialization order
-const FitnessDashboard = () => {
+const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [workouts, setWorkouts] = useState([]);
   const [isLoggingWorkout, setIsLoggingWorkout] = useState(false);
@@ -581,6 +581,7 @@ const FitnessDashboard = () => {
         <WorkoutPanel
           workoutType={workoutType}
           setIsLoggingWorkout={setIsLoggingWorkout}
+          setWorkoutType={setWorkoutType}
           currentExercises={currentExercises}
           setCurrentExercises={setCurrentExercises}
           finishWorkout={finishWorkout}
@@ -591,23 +592,121 @@ const FitnessDashboard = () => {
   );
 };
 
-// Add these additional styles
-const additionalStyles = {
-  loadingContainer: {
+// Define styles object - THIS WAS MISSING AND CAUSING THE ESLINT ERRORS
+const styles = {
+  container: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+    color: '#f8fafc',
+    padding: '24px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  },
+  authCard: {
+    maxWidth: '400px',
+    margin: '80px auto',
+    background: 'rgba(30, 27, 75, 0.8)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '24px',
+    padding: '40px',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+  },
+  authHeader: {
+    textAlign: 'center',
+    marginBottom: '32px'
+  },
+  logoContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '16px'
+  },
+  authTitle: {
+    fontSize: '28px',
+    fontWeight: '700',
+    marginBottom: '8px',
+    background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent'
+  },
+  authSubtitle: {
+    color: '#94a3b8',
+    fontSize: '16px',
+    margin: 0
+  },
+  authForm: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    gap: '20px'
+    gap: '16px'
   },
-  loadingSpinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid rgba(255, 255, 255, 0.1)',
-    borderLeft: '4px solid #6366f1',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite'
+  authInput: {
+    padding: '12px 16px',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '12px',
+    color: '#fff',
+    fontSize: '16px',
+    outline: 'none',
+    transition: 'border-color 0.2s'
+  },
+  authButton: {
+    padding: '14px',
+    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+    border: 'none',
+    borderRadius: '12px',
+    color: '#fff',
+    fontSize: '16px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'transform 0.2s'
+  },
+  toggleButton: {
+    background: 'none',
+    border: 'none',
+    color: '#6366f1',
+    fontSize: '14px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    marginTop: '8px'
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '32px'
+  },
+  brandContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '8px'
+  },
+  brandTitle: {
+    fontSize: '24px',
+    fontWeight: '700',
+    margin: 0,
+    background: 'linear-gradient(135deg, #6366f1, #ec4899)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent'
+  },
+  greeting: {
+    fontSize: '20px',
+    fontWeight: '600',
+    margin: '4px 0',
+    color: '#f8fafc'
+  },
+  date: {
+    color: '#94a3b8',
+    fontSize: '14px',
+    margin: 0
+  },
+  logoutBtn: {
+    padding: '8px 16px',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '12px',
+    color: '#94a3b8',
+    cursor: 'pointer',
+    fontSize: '14px'
   },
   errorBanner: {
     background: 'rgba(239, 68, 68, 0.1)',
@@ -619,10 +718,6 @@ const additionalStyles = {
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  errorMessage: {
-    color: '#ef4444',
-    fontSize: '14px'
-  },
   closeError: {
     background: 'none',
     border: 'none',
@@ -631,22 +726,298 @@ const additionalStyles = {
     fontSize: '18px',
     padding: '0'
   },
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+    marginBottom: '24px'
+  },
+  statCard: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '20px',
+    padding: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px'
+  },
+  statIcon: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, #ec4899, #be185d)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '24px'
+  },
+  statValue: {
+    fontSize: '24px',
+    fontWeight: '700',
+    marginBottom: '4px'
+  },
+  statLabel: {
+    fontSize: '12px',
+    color: '#94a3b8'
+  },
+  mainGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '24px',
+    marginBottom: '100px'
+  },
+  card: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '24px',
+    padding: '24px'
+  },
+  cardHeader: {
+    marginBottom: '20px'
+  },
+  cardTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    margin: 0
+  },
+  chartContainer: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: '12px',
+    height: '200px'
+  },
+  barWrapper: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  barContainer: {
+    flex: 1,
+    width: '100%',
+    display: 'flex',
+    alignItems: 'flex-end'
+  },
+  bar: {
+    width: '100%',
+    borderRadius: '8px 8px 0 0',
+    position: 'relative',
+    minHeight: '4px',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingTop: '4px'
+  },
+  barValue: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#fff'
+  },
+  barLabel: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    fontWeight: '600'
+  },
   noDataMessage: {
     textAlign: 'center',
     color: '#94a3b8',
     fontSize: '14px',
     padding: '20px'
+  },
+  sessionList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
+  },
+  sessionItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '12px',
+    background: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.05)'
+  },
+  sessionIcon: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
+    background: 'rgba(99, 102, 241, 0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  sessionInfo: {
+    flex: 1
+  },
+  sessionDate: {
+    fontSize: '14px',
+    fontWeight: '600',
+    marginBottom: '2px'
+  },
+  sessionExercises: {
+    fontSize: '12px',
+    color: '#94a3b8'
+  },
+  sessionVolume: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#6366f1'
+  },
+  fabContainer: {
+    position: 'fixed',
+    bottom: '24px',
+    right: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    alignItems: 'flex-end'
+  },
+  fabButton: {
+    padding: '14px 24px',
+    border: 'none',
+    borderRadius: '16px',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    transition: 'transform 0.2s'
+  },
+  workoutPanel: {
+    position: 'fixed',
+    bottom: '24px',
+    right: '24px',
+    width: '400px',
+    maxWidth: 'calc(100vw - 48px)',
+    background: 'rgba(30, 27, 75, 0.95)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '24px',
+    padding: '24px',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+  },
+  workoutHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px'
+  },
+  workoutTitle: {
+    fontSize: '18px',
+    fontWeight: '700',
+    margin: 0
+  },
+  closeBtn: {
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: 'none',
+    color: '#fff',
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '18px'
+  },
+  inputGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
+  },
+  inputGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  inputRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 1fr',
+    gap: '12px'
+  },
+  label: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    fontWeight: '600'
+  },
+  select: {
+    padding: '12px',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '12px',
+    color: '#fff',
+    fontSize: '14px',
+    outline: 'none'
+  },
+  input: {
+    padding: '12px',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '12px',
+    color: '#fff',
+    fontSize: '14px',
+    outline: 'none'
+  },
+  addButton: {
+    padding: '12px',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '12px',
+    color: '#fff',
+    fontWeight: '600',
+    cursor: 'pointer'
+  },
+  exerciseList: {
+    marginTop: '20px',
+    padding: '16px',
+    background: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: '16px'
+  },
+  listTitle: {
+    fontSize: '14px',
+    fontWeight: '600',
+    marginTop: 0,
+    marginBottom: '12px'
+  },
+  exerciseItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '8px 0',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+    fontSize: '14px'
+  },
+  exerciseDetails: {
+    color: '#94a3b8'
+  },
+  totalVolume: {
+    marginTop: '12px',
+    padding: '12px',
+    background: 'rgba(99, 102, 241, 0.1)',
+    borderRadius: '8px',
+    textAlign: 'center',
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#6366f1'
+  },
+  finishButton: {
+    marginTop: '12px',
+    width: '100%',
+    padding: '14px',
+    background: 'linear-gradient(135deg, #10b981, #059669)',
+    border: 'none',
+    borderRadius: '12px',
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: '16px',
+    cursor: 'pointer'
+  },
+  errorMessage: {
+    color: '#ef4444',
+    fontSize: '14px'
   }
 };
 
-// Add keyframes for animation
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(style);
-
-export default FitnessDashboard;
+export default Dashboard;
