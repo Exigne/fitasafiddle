@@ -1,4 +1,4 @@
-// Dashboard.jsx - Fixed to show actual exercise names
+// Dashboard.jsx - Fixed with better debugging and data handling
 import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, Dumbbell, TrendingUp, Calendar, Heart, Sparkles } from 'lucide-react';
 
@@ -231,6 +231,15 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Add debugging for workout data
+  useEffect(() => {
+    console.log('Workouts data:', workouts);
+    if (workouts.length > 0) {
+      console.log('First workout:', workouts[0]);
+      console.log('First workout exercises:', workouts[0]?.exercises);
+    }
+  }, [workouts]);
+
   // Fixed useEffect with proper async handling
   useEffect(() => {
     const loadUser = async () => {
@@ -276,6 +285,9 @@ const Dashboard = () => {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       
       const data = await res.json();
+      console.log('Raw workout data from API:', data);
+      console.log('Workouts array:', data.workouts);
+      
       setWorkouts(Array.isArray(data.workouts) ? data.workouts : []);
     } catch (err) {
       console.error('Failed to load workouts:', err);
@@ -336,6 +348,8 @@ const Dashboard = () => {
   const finishWorkout = async () => {
     if (!user?.email || currentExercises.length === 0) return;
     
+    console.log('Finishing workout with exercises:', currentExercises);
+    
     setLoading(true);
     
     try {
@@ -345,6 +359,8 @@ const Dashboard = () => {
         created_at: new Date().toISOString(),
         type: workoutType
       };
+      
+      console.log('Sending workout data to API:', workoutData);
       
       const res = await fetch('/.netlify/functions/database', {
         method: 'POST',
@@ -372,6 +388,8 @@ const Dashboard = () => {
     if (!Array.isArray(workouts)) {
       return { totalSessions: 0, totalVolume: 0, last7Days: [], currentStreak: 0 };
     }
+    
+    console.log('Calculating stats from workouts:', workouts);
     
     const totalSessions = workouts.length;
     
@@ -453,10 +471,16 @@ const Dashboard = () => {
   const stats = calculateStats();
   const avgVolume = stats.totalSessions > 0 ? Math.round(stats.totalVolume / stats.totalSessions) : 0;
 
-  // FIXED: Helper function to get workout name and icon - NOW SHOWS EXERCISE NAMES
+  // FIXED: Helper function to get workout name and icon - WITH BETTER ERROR HANDLING
   const getWorkoutInfo = (workout) => {
+    console.log('Getting workout info for:', workout);
+    
     const type = workout.type || 'strength';
     const exercises = workout.exercises || [];
+    
+    console.log('Workout type:', type);
+    console.log('Exercises array:', exercises);
+    console.log('First exercise:', exercises[0]);
     
     if (exercises.length === 0) {
       return { name: 'Workout', icon: '💪', color: '#6366f1' };
@@ -464,7 +488,15 @@ const Dashboard = () => {
     
     // Get the first exercise to determine the workout name and icon
     const firstExercise = exercises[0];
+    
+    // Check if the exercise has a name property
+    if (!firstExercise.name) {
+      console.log('First exercise has no name property:', firstExercise);
+      return { name: 'Unknown Exercise', icon: '💪', color: '#6366f1' };
+    }
+    
     const exerciseData = EXERCISES[type]?.[firstExercise.name];
+    console.log('Exercise data from EXERCISES:', exerciseData);
     
     // If multiple exercises, show the first one with count
     const workoutName = exercises.length === 1 
