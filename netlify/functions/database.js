@@ -22,28 +22,44 @@ export const handler = async (event) => {
   const method = event.httpMethod;
 
   try {
-if (method === 'GET') {
-  const workoutLogs = await sql`SELECT * FROM workout_logs ORDER BY created_at DESC`;
-  const users = await sql`SELECT email, display_name, profile_pic FROM users`;
-  
-  const formattedWorkouts = workoutLogs.map(w => ({
-    id: w.id,
-    workout_id: w.workout_id,
-    user_email: w.user_email, // You might need to add this column or join with workouts table
-    created_at: w.created_at,
-    ex_name: w.exercise_name,
-    ex_weight: w.weight || 0,
-    ex_sets: w.sets || 0,
-    ex_reps: w.reps || 0,
-    muscle_group: w.muscle_group
-  }));
+    if (method === 'GET') {
+      // JOIN workout_logs with workouts to get user_email
+      const workoutLogs = await sql`
+        SELECT 
+          wl.id,
+          wl.workout_id,
+          wl.exercise_name,
+          wl.muscle_group,
+          wl.sets,
+          wl.reps,
+          wl.weight,
+          wl.created_at,
+          w.user_email
+        FROM workout_logs wl
+        JOIN workouts w ON wl.workout_id = w.id
+        ORDER BY wl.created_at DESC
+      `;
+      
+      const users = await sql`SELECT email, display_name, profile_pic FROM users`;
+      
+      const formattedWorkouts = workoutLogs.map(w => ({
+        id: w.id,
+        workout_id: w.workout_id,
+        user_email: w.user_email,
+        created_at: w.created_at,
+        ex_name: w.exercise_name,
+        ex_weight: w.weight || 0,
+        ex_sets: w.sets || 0,
+        ex_reps: w.reps || 0,
+        muscle_group: w.muscle_group
+      }));
 
-  return {
-    statusCode: 200,
-    headers: getCorsHeaders(),
-    body: JSON.stringify({ workouts: formattedWorkouts, users }),
-  };
-}
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(),
+        body: JSON.stringify({ workouts: formattedWorkouts, users }),
+      };
+    }
 
     if (method === 'POST') {
       const body = JSON.parse(event.body || '{}');
@@ -90,14 +106,23 @@ if (method === 'GET') {
           };
         }
 
-        // Insert into the CORRECT table - workout_logs
+        // First, create a workout record
+        const workoutResult = await sql`
+          INSERT INTO workouts (user_email, created_at) 
+          VALUES (${body.userEmail}, NOW())
+          RETURNING id
+        `;
+        
+        const workoutId = workoutResult[0].id;
+        
+        // Then insert each exercise into workout_logs
         for (const exercise of body.exercises) {
           await sql`
             INSERT INTO workout_logs 
-            (user_email, exercise_name, muscle_group, sets, reps, weight, created_at) 
+            (workout_id, exercise_name, muscle_group, sets, reps, weight, created_at) 
             VALUES (
-              ${body.userEmail}, 
-              ${exercise.exercise_name}, 
+              ${workoutId},
+              ${exercise.exercise_name || exercise.name || 'Unknown Exercise'}, 
               ${exercise.muscle_group || 'Other'}, 
               ${exercise.sets || 1}, 
               ${exercise.reps || 0}, 
@@ -110,7 +135,7 @@ if (method === 'GET') {
         return {
           statusCode: 200,
           headers: getCorsHeaders(),
-          body: JSON.stringify({ success: true })
+          body: JSON.stringify({ success: true, workoutId })
         };
       }
 
@@ -133,7 +158,7 @@ if (method === 'GET') {
         };
       }
 
-      // Delete from the CORRECT table - workout_logs
+      // Delete from workout_logs (the workoutId here is actually the log id)
       await sql`DELETE FROM workout_logs WHERE id = ${parseInt(workoutId)}`;
       
       return {
