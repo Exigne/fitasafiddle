@@ -21,22 +21,36 @@ export const handler = async (event) => {
 
   try {
     if (method === 'GET') {
-      // CRITICAL: Query workout_logs table (not workouts)
-      const workoutLogs = await sql`SELECT * FROM workout_logs ORDER BY created_at DESC`;
+      console.log('Fetching joined workout data...');
+      
+      // CRITICAL: Join workouts and workout_logs tables
+      const workoutLogs = await sql`
+        SELECT 
+          wl.id,
+          wl.workout_id,
+          wl.exercise_name,
+          wl.muscle_group,
+          wl.sets,
+          wl.reps,
+          wl.weight,
+          wl.created_at,
+          w.user_email
+        FROM workout_logs wl
+        INNER JOIN workouts w ON wl.workout_id = w.id
+        ORDER BY wl.created_at DESC
+      `;
+      
       const users = await sql`SELECT email, display_name, profile_pic FROM users`;
       
-      console.log('Returning data to Dashboard:', {
-        workoutLogsCount: workoutLogs.length,
-        usersCount: users.length,
-        firstWorkoutLog: workoutLogs[0]
-      });
+      console.log('Joined workout logs found:', workoutLogs.length);
+      console.log('First workout log:', workoutLogs[0]);
+      console.log('Users found:', users.length);
 
-      // Return EXACT format your Dashboard expects
       return {
         statusCode: 200,
         headers: getCorsHeaders(),
         body: JSON.stringify({ 
-          workoutLogs: workoutLogs, // MUST be workoutLogs (not workouts)
+          workoutLogs: workoutLogs,
           users: users 
         }),
       };
@@ -74,13 +88,23 @@ export const handler = async (event) => {
       }
 
       if (body.userEmail && body.exercises) {
-        // Insert into workout_logs table (NOT workouts)
+        // First create a workout session
+        const workoutResult = await sql`
+          INSERT INTO workouts (user_email, created_at) 
+          VALUES (${body.userEmail}, NOW()) 
+          RETURNING id
+        `;
+        
+        const workoutId = workoutResult[0].id;
+        console.log('Created workout with id:', workoutId);
+
+        // Then add exercises to workout_logs
         for (const exercise of body.exercises) {
           await sql`
             INSERT INTO workout_logs 
-            (user_email, exercise_name, muscle_group, sets, reps, weight, created_at) 
+            (workout_id, exercise_name, muscle_group, sets, reps, weight, created_at) 
             VALUES (
-              ${body.userEmail}, 
+              ${workoutId}, 
               ${exercise.exercise_name}, 
               ${exercise.muscle_group || 'Other'}, 
               ${exercise.sets || 1}, 
@@ -101,6 +125,9 @@ export const handler = async (event) => {
 
     if (method === 'DELETE') {
       const workoutId = event.queryStringParameters?.workoutId;
+      console.log('Deleting workout log with id:', workoutId);
+      
+      // Delete from workout_logs (not workouts)
       await sql`DELETE FROM workout_logs WHERE id = ${parseInt(workoutId)}`;
       
       return {
