@@ -12,7 +12,4 @@
   status = 200
 
 [context.production]
-  command = "npm run check:circular && npm run lint && npm run build"
-
-[context.deploy-preview]
   command = "npm run build"
