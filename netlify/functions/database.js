@@ -57,7 +57,7 @@ export const handler = async (event) => {
       return {
         statusCode: 200,
         headers: getCorsHeaders(),
-        body: JSON.stringify({ workouts: formattedWorkouts, users }),
+        body: JSON.stringify({ workoutLogs: formattedWorkouts, users }),
       };
     }
 
