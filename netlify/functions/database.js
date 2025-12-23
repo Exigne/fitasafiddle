@@ -9,16 +9,19 @@ export const handler = async (event) => {
       const workouts = await sql`SELECT * FROM workouts ORDER BY created_at DESC`;
       const users = await sql`SELECT email, display_name, profile_pic FROM users`;
       
-      // Ensure exercises are parsed if they come back as strings
-      const parsedWorkouts = workouts.map(w => ({
-        ...w,
-        exercises: typeof w.exercises === 'string' ? JSON.parse(w.exercises) : w.exercises
-      }));
+      // DEEP PARSE: Ensures exercises are objects, not strings
+      const cleanedWorkouts = workouts.map(w => {
+        let parsedEx = w.exercises;
+        if (typeof w.exercises === 'string') {
+          try { parsedEx = JSON.parse(w.exercises); } catch (e) { parsedEx = []; }
+        }
+        return { ...w, exercises: Array.isArray(parsedEx) ? parsedEx : [parsedEx] };
+      });
 
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workouts: parsedWorkouts, users }),
+        body: JSON.stringify({ workouts: cleanedWorkouts, users }),
       };
     }
 
@@ -26,31 +29,24 @@ export const handler = async (event) => {
       const body = JSON.parse(event.body || '{}');
 
       if (body.action === 'auth') {
-        const { email, password } = body;
-        const users = await sql`SELECT * FROM users WHERE email = ${email}`;
+        const users = await sql`SELECT * FROM users WHERE email = ${body.email}`;
         if (users.length === 0) {
-          await sql`INSERT INTO users (email, password, display_name) VALUES (${email}, ${password}, ${email.split('@')[0]})`;
-          return { statusCode: 200, body: JSON.stringify({ email }) };
+          await sql`INSERT INTO users (email, password, display_name) VALUES (${body.email}, ${body.password}, ${body.email.split('@')[0]})`;
+          return { statusCode: 200, body: JSON.stringify({ email: body.email }) };
         }
         return { statusCode: 200, body: JSON.stringify(users[0]) };
       }
 
-      if (body.action === 'update_profile') {
-        await sql`UPDATE users SET display_name = ${body.displayName}, profile_pic = ${body.profilePic} WHERE email = ${body.email}`;
+      if (body.userEmail && body.exercises) {
+        // Save as strict JSONB
+        await sql`INSERT INTO workouts (user_email, exercises) VALUES (${body.userEmail}, ${JSON.stringify(body.exercises)}::jsonb)`;
         return { statusCode: 200, body: JSON.stringify({ success: true }) };
       }
-
-      // SAVING WORKOUT: Explicitly casting to JSONB
-      if (body.userEmail && body.exercises) {
-        const exercisesJson = JSON.stringify(body.exercises);
-        await sql`INSERT INTO workouts (user_email, exercises) VALUES (${body.userEmail}, ${exercisesJson}::jsonb)`;
-        return { statusCode: 200, body: JSON.stringify({ message: "Saved" }) };
-      }
     }
-    
+
     if (method === 'DELETE') {
       await sql`DELETE FROM workouts WHERE id = ${event.queryStringParameters.workoutId}`;
-      return { statusCode: 200, body: JSON.stringify({ message: "Deleted" }) };
+      return { statusCode: 200, body: JSON.stringify({ success: true }) };
     }
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
