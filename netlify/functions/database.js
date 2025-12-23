@@ -33,7 +33,11 @@ export const handler = async (event) => {
       }
 
       if (body.userEmail && body.exercises) {
-        await sql`INSERT INTO workouts (user_email, exercises) VALUES (${body.userEmail}, ${JSON.stringify(body.exercises)})`;
+        // Explicitly saving the full exercise object so name isn't lost
+        await sql`
+          INSERT INTO workouts (user_email, exercises, created_at) 
+          VALUES (${body.userEmail}, ${JSON.stringify(body.exercises)}, NOW())
+        `;
         return { statusCode: 200, body: JSON.stringify({ message: "Saved" }) };
       }
     }
