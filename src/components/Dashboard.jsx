@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Dumbbell, Calendar, Heart, Sparkles, Trash2, X, Trophy, User, Target, Zap, Wind, LogOut, Settings, Plus, Edit3, Clock, ChevronDown } from 'lucide-react';
+import { Dumbbell, Calendar, Heart, Sparkles, Trash2, X, Trophy, User, Target, Zap, Wind, LogOut, Settings, Plus, Edit3, Clock, ChevronDown, Search, Filter } from 'lucide-react';
 
 const EXERCISE_TYPES = ['strength', 'cardio', 'stretch'];
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -26,6 +26,339 @@ const WORKOUT_CONFIGS = {
     labels: { minutes: 'MINUTES' },
     placeholders: { minutes: 'Minutes' }
   }
+};
+
+// Darebee-inspired workout database
+const WORKOUT_IDEAS = [
+  {
+    id: 1,
+    name: "Cardio Shock",
+    type: "cardio",
+    difficulty: "intermediate",
+    duration: "20-30 min",
+    description: "High-intensity cardio workout to boost endurance",
+    exercises: [
+      "20 jumping jacks",
+      "20 basic burpees", 
+      "20 jumping jacks",
+      "20 high knees",
+      "20 jumping jacks",
+      "20 mountain climbers"
+    ],
+    sets: "3-5 sets",
+    rest: "2 minutes rest between sets"
+  },
+  {
+    id: 2,
+    name: "Strength Titan",
+    type: "strength",
+    difficulty: "advanced",
+    duration: "45-60 min",
+    description: "Full body strength training for muscle building",
+    exercises: [
+      "10 push-ups",
+      "15 squats",
+      "10 pull-ups",
+      "15 lunges each leg",
+      "10 dips",
+      "20 calf raises"
+    ],
+    sets: "4-6 sets",
+    rest: "90 seconds rest between sets"
+  },
+  {
+    id: 3,
+    name: "Flexibility Flow",
+    type: "stretch",
+    difficulty: "beginner",
+    duration: "15-25 min",
+    description: "Gentle stretching routine for flexibility",
+    exercises: [
+      "30 seconds forward bend",
+      "30 seconds butterfly stretch",
+      "30 seconds quad stretch each leg",
+      "30 seconds shoulder stretch",
+      "30 seconds neck rolls",
+      "30 seconds spinal twist"
+    ],
+    sets: "Hold each stretch",
+    rest: "No rest between stretches"
+  },
+  {
+    id: 4,
+    name: "HIIT Burner",
+    type: "cardio",
+    difficulty: "advanced",
+    duration: "25-35 min",
+    description: "High-intensity interval training for fat loss",
+    exercises: [
+      "30 seconds burpees",
+      "30 seconds jumping jacks",
+      "30 seconds mountain climbers",
+      "30 seconds high knees",
+      "30 seconds plank jacks",
+      "30 seconds rest"
+    ],
+    sets: "5-7 rounds",
+    rest: "30 seconds rest between exercises"
+  },
+  {
+    id: 5,
+    name: "Core Crusher",
+    type: "strength",
+    difficulty: "intermediate",
+    duration: "20-30 min",
+    description: "Targeted core workout for abs and stability",
+    exercises: [
+      "20 crunches",
+      "20 leg raises",
+      "30 seconds plank",
+      "20 Russian twists",
+      "15 bicycle crunches",
+      "20 mountain climbers"
+    ],
+    sets: "3-4 sets",
+    rest: "60 seconds rest between sets"
+  },
+  {
+    id: 6,
+    name: "Yoga Sunrise",
+    type: "stretch",
+    difficulty: "beginner",
+    duration: "20-40 min",
+    description: "Morning yoga flow to start your day",
+    exercises: [
+      "Sun salutation A (5 rounds)",
+      "Warrior I pose (30 seconds each side)",
+      "Tree pose (30 seconds each side)",
+      "Child's pose (1 minute)",
+      "Cat-cow stretch (10 rounds)",
+      "Corpse pose (5 minutes)"
+    ],
+    sets: "Hold poses as indicated",
+    rest: "Flow between poses"
+  },
+  {
+    id: 7,
+    name: "Boxer Blast",
+    type: "cardio",
+    difficulty: "intermediate",
+    duration: "30-40 min",
+    description: "Boxing-inspired cardio workout",
+    exercises: [
+      "60 jab-cross combinations",
+      "20 knee strikes each leg",
+      "40 speed bag punches",
+      "20 hooks each arm",
+      "40 high knees",
+      "20 uppercuts each arm"
+    ],
+    sets: "3-5 sets",
+    rest: "90 seconds rest between sets"
+  },
+  {
+    id: 8,
+    name: "Power Lifter",
+    type: "strength",
+    difficulty: "advanced",
+    duration: "60-75 min",
+    description: "Heavy strength training for serious gains",
+    exercises: [
+      "Deadlifts (8 reps)",
+      "Bench press (8 reps)",
+      "Squats (10 reps)",
+      "Overhead press (8 reps)",
+      "Bent-over rows (10 reps)",
+      "Pull-ups (max reps)"
+    ],
+    sets: "4-5 sets",
+    rest: "2-3 minutes rest between sets"
+  }
+];
+
+const WorkoutIdeas = () => {
+  const [selectedType, setSelectedType] = useState('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+
+  const filteredWorkouts = WORKOUT_IDEAS.filter(workout => {
+    const typeMatch = selectedType === 'all' || workout.type === selectedType;
+    const difficultyMatch = selectedDifficulty === 'all' || workout.difficulty === selectedDifficulty;
+    const searchMatch = searchTerm === '' || 
+      workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      workout.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return typeMatch && difficultyMatch && searchMatch;
+  });
+
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty) {
+      case 'beginner': return '#10b981';
+      case 'intermediate': return '#fbbf24';
+      case 'advanced': return '#ef4444';
+      default: return '#6366f1';
+    }
+  };
+
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'strength': return <Dumbbell size={16} />;
+      case 'cardio': return <Heart size={16} />;
+      case 'stretch': return <Wind size={16} />;
+      default: return <Sparkles size={16} />;
+    }
+  };
+
+  return (
+    <div style={styles.ideasContainer}>
+      <div style={styles.ideasHeader}>
+        <h2>Workout Ideas</h2>
+        <p style={styles.ideasSubtitle}>Discover new workouts to challenge yourself</p>
+      </div>
+
+      {/* Filters and Search */}
+      <div style={styles.filtersContainer}>
+        <div style={styles.searchBar}>
+          <Search size={16} color="#94a3b8" />
+          <input
+            type="text"
+            placeholder="Search workouts..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.searchInput}
+          />
+        </div>
+        
+        <div style={styles.filterGroup}>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="all">All Types</option>
+            <option value="strength">Strength</option>
+            <option value="cardio">Cardio</option>
+            <option value="stretch">Stretch</option>
+          </select>
+
+          <select
+            value={selectedDifficulty}
+            onChange={(e) => setSelectedDifficulty(e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="all">All Levels</option>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Workout Grid */}
+      <div style={styles.workoutGrid}>
+        {filteredWorkouts.map(workout => (
+          <div key={workout.id} style={styles.workoutCard}>
+            <div style={styles.cardHeader}>
+              <div style={styles.cardTitle}>
+                {getTypeIcon(workout.type)}
+                <h3>{workout.name}</h3>
+              </div>
+              <div style={{
+                ...styles.difficultyBadge,
+                backgroundColor: getDifficultyColor(workout.difficulty),
+                color: '#fff'
+              }}>
+                {workout.difficulty}
+              </div>
+            </div>
+
+            <p style={styles.workoutDescription}>{workout.description}</p>
+            
+            <div style={styles.workoutMeta}>
+              <div style={styles.metaItem}>
+                <Clock size={14} color="#94a3b8" />
+                <span>{workout.duration}</span>
+              </div>
+              <div style={styles.metaItem}>
+                <Target size={14} color="#94a3b8" />
+                <span>{workout.sets}</span>
+              </div>
+            </div>
+
+            <button
+              style={styles.viewDetailsBtn}
+              onClick={() => setSelectedWorkout(workout)}
+            >
+              View Details
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Workout Detail Modal */}
+      {selectedWorkout && (
+        <div style={styles.modalOverlay} onClick={() => setSelectedWorkout(null)}>
+          <div style={styles.detailModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.detailHeader}>
+              <div style={styles.detailTitle}>
+                {getTypeIcon(selectedWorkout.type)}
+                <h2>{selectedWorkout.name}</h2>
+              </div>
+              <X onClick={() => setSelectedWorkout(null)} style={{cursor: 'pointer'}} />
+            </div>
+
+            <div style={styles.detailContent}>
+              <p style={styles.detailDescription}>{selectedWorkout.description}</p>
+              
+              <div style={styles.detailMeta}>
+                <div style={styles.metaBadge} className="difficulty">
+                  <span>Level:</span>
+                  <span style={{color: getDifficultyColor(selectedWorkout.difficulty)}}>
+                    {selectedWorkout.difficulty}
+                  </span>
+                </div>
+                <div style={styles.metaBadge}>
+                  <Clock size={14} />
+                  <span>{selectedWorkout.duration}</span>
+                </div>
+                <div style={styles.metaBadge}>
+                  <Target size={14} />
+                  <span>{selectedWorkout.sets}</span>
+                </div>
+              </div>
+
+              <div style={styles.exercisesSection}>
+                <h4 style={styles.sectionTitle}>Exercises:</h4>
+                <div style={styles.exercisesList}>
+                  {selectedWorkout.exercises.map((exercise, index) => (
+                    <div key={index} style={styles.exerciseItem}>
+                      <span style={styles.exerciseNumber}>{index + 1}.</span>
+                      <span>{exercise}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedWorkout.rest && (
+                <div style={styles.restInfo}>
+                  <Wind size={16} color="#94a3b8" />
+                  <span>{selectedWorkout.rest}</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              style={styles.closeModalBtn}
+              onClick={() => setSelectedWorkout(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const WorkoutPlanner = ({ userEmail, workoutLogs = [], weekPlan, setWeekPlan }) => {
@@ -542,7 +875,7 @@ const Dashboard = () => {
       await loadData();
       
     } catch (e) {
-      console.error('Save workout error:', e);
+      console.error('Save workout error', e);
       setError('Failed to save workout');
     } finally {
       setLoading(false);
@@ -769,6 +1102,15 @@ const Dashboard = () => {
             }}
           >
             Weekly Planner
+          </button>
+          <button 
+            onClick={() => setActiveTab('ideas')} 
+            style={{
+              ...styles.tabButton,
+              ...(activeTab === 'ideas' ? styles.activeTab : {})
+            }}
+          >
+            Workout Ideas
           </button>
         </div>
         <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
@@ -1024,13 +1366,15 @@ const Dashboard = () => {
             </button>
           </div>
         </>
-      ) : (
+      ) : activeTab === 'planner' ? (
         <WorkoutPlanner 
           userEmail={user?.email} 
           workoutLogs={allData.workoutLogs}
           weekPlan={weekPlan}
           setWeekPlan={setWeekPlan}
         />
+      ) : (
+        <WorkoutIdeas />
       )}
 
       {isLogging && (
@@ -1182,6 +1526,219 @@ const styles = {
   coinsNote: { fontSize:'12px', color:'#94a3b8', textAlign:'center' },
   emptyState: { textAlign:'center', color:'#94a3b8', padding:'20px' },
   
+  // Workout Ideas Styles
+  ideasContainer: { padding: '20px 0' },
+  ideasHeader: { marginBottom: '30px', textAlign: 'center' },
+  ideasSubtitle: { color: '#94a3b8', fontSize: '16px', marginTop: '10px' },
+  
+  filtersContainer: { 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: '30px',
+    gap: '20px',
+    flexWrap: 'wrap'
+  },
+  searchBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    background: '#161d2f',
+    padding: '12px 20px',
+    borderRadius: '12px',
+    border: '1px solid rgba(255,255,255,0.05)',
+    flex: 1,
+    minWidth: '250px'
+  },
+  searchInput: {
+    flex: 1,
+    background: 'transparent',
+    border: 'none',
+    color: '#fff',
+    outline: 'none',
+    fontSize: '14px'
+  },
+  filterGroup: {
+    display: 'flex',
+    gap: '10px'
+  },
+  filterSelect: {
+    padding: '12px 16px',
+    background: '#161d2f',
+    color: '#fff',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '12px',
+    cursor: 'pointer'
+  },
+  
+  workoutGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '20px',
+    marginBottom: '30px'
+  },
+  workoutCard: {
+    background: '#161d2f',
+    padding: '25px',
+    borderRadius: '24px',
+    border: '1px solid rgba(255,255,255,0.05)',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    cursor: 'pointer',
+    '&:hover': {
+      transform: 'translateY(-2px)',
+      boxShadow: '0 10px 30px rgba(99, 102, 241, 0.1)'
+    }
+  },
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '15px'
+  },
+  cardTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px'
+  },
+  difficultyBadge: {
+    padding: '6px 12px',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    textTransform: 'uppercase'
+  },
+  workoutDescription: {
+    color: '#94a3b8',
+    fontSize: '14px',
+    marginBottom: '15px',
+    lineHeight: '1.5'
+  },
+  workoutMeta: {
+    display: 'flex',
+    gap: '15px',
+    marginBottom: '20px'
+  },
+  metaItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '13px',
+    color: '#94a3b8'
+  },
+  viewDetailsBtn: {
+    width: '100%',
+    padding: '12px',
+    background: 'rgba(99, 102, 241, 0.1)',
+    color: '#6366f1',
+    border: '1px solid rgba(99, 102, 241, 0.2)',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      background: 'rgba(99, 102, 241, 0.2)'
+    }
+  },
+  
+  // Detail Modal Styles
+  detailModal: {
+    background: '#161d2f',
+    padding: '40px',
+    borderRadius: '32px',
+    width: '90%',
+    maxWidth: '600px',
+    maxHeight: '80vh',
+    overflowY: 'auto'
+  },
+  detailHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '25px'
+  },
+  detailTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '15px'
+  },
+  detailContent: {
+    marginBottom: '25px'
+  },
+  detailDescription: {
+    color: '#94a3b8',
+    fontSize: '16px',
+    lineHeight: '1.6',
+    marginBottom: '20px'
+  },
+  detailMeta: {
+    display: 'flex',
+    gap: '15px',
+    marginBottom: '25px',
+    flexWrap: 'wrap'
+  },
+  metaBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 16px',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '12px',
+    fontSize: '14px',
+    '&.difficulty': {
+      background: 'transparent',
+      padding: '0'
+    }
+  },
+  exercisesSection: {
+    marginBottom: '25px'
+  },
+  sectionTitle: {
+    marginBottom: '15px',
+    color: '#6366f1',
+    fontSize: '18px'
+  },
+  exercisesList: {
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '12px',
+    padding: '20px'
+  },
+  exerciseItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    marginBottom: '10px',
+    padding: '8px 0',
+    '&:last-child': {
+      marginBottom: 0
+    }
+  },
+  exerciseNumber: {
+    color: '#6366f1',
+    fontWeight: 'bold',
+    minWidth: '20px'
+  },
+  restInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    color: '#94a3b8',
+    fontSize: '14px',
+    padding: '15px',
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '12px'
+  },
+  closeModalBtn: {
+    width: '100%',
+    padding: '16px',
+    background: '#6366f1',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  },
+  
+  // Existing styles...
   plannerContainer: { padding: '20px 0' },
   plannerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
   savePlanBtn: {
