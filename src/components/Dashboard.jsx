@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Dumbbell, Calendar, Heart, Sparkles, Trash2, X, Trophy, User, Target, Zap, Wind, LogOut, Settings, Plus, Edit3, Clock, ChevronDown } from 'lucide-react';
 
 const EXERCISE_TYPES = ['strength', 'cardio', 'stretch'];
-
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const EXERCISES = {
@@ -59,26 +58,40 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [] }) => {
 
   // Extract unique exercises from workout history
   useEffect(() => {
+    console.log('WorkoutPlanner received workoutLogs:', workoutLogs);
+    console.log('WorkoutPlanner received workoutLogs length:', workoutLogs?.length);
+
     const exercises = {
       strength: new Set(),
       cardio: new Set(),
       stretch: new Set()
     };
 
-    workoutLogs.forEach(log => {
-      if (log.exercise_name) {
-        const type = log.workout_type || 'strength';
-        if (exercises[type]) {
-          exercises[type].add(log.exercise_name);
+    if (workoutLogs && workoutLogs.length > 0) {
+      workoutLogs.forEach(log => {
+        if (log.exercise_name) {
+          const type = log.workout_type || 'strength';
+          if (exercises[type]) {
+            exercises[type].add(log.exercise_name);
+          }
         }
-      }
+      });
+    }
+
+    // Also add default exercises
+    Object.keys(EXERCISES).forEach(type => {
+      Object.keys(EXERCISES[type]).forEach(exercise => {
+        exercises[type].add(exercise);
+      });
     });
 
     setAvailableExercises({
-      strength: Array.from(exercises.strength),
-      cardio: Array.from(exercises.cardio),
-      stretch: Array.from(exercises.stretch)
+      strength: Array.from(exercises.strength).sort(),
+      cardio: Array.from(exercises.cardio).sort(),
+      stretch: Array.from(exercises.stretch).sort()
     });
+
+    console.log('Available exercises:', exercises);
   }, [workoutLogs]);
 
   const toggleWorkoutDay = (day) => {
@@ -95,7 +108,6 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [] }) => {
   const addExerciseToDay = (day) => {
     if (!selectedExercise) return;
 
-    const exerciseConfig = WORKOUT_CONFIGS[weekPlan[day].type];
     const newExercise = {
       name: selectedExercise,
       type: weekPlan[day].type,
@@ -133,10 +145,11 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [] }) => {
   };
 
   const saveWeekPlan = async () => {
-    // Here you could save to database
     console.log('Saving week plan:', weekPlan);
     alert('Week plan saved successfully!');
   };
+
+  console.log('WorkoutPlanner rendering with availableExercises:', availableExercises);
 
   return (
     <div style={styles.plannerContainer}>
@@ -240,7 +253,7 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [] }) => {
               onChange={(e) => setSelectedExercise(e.target.value)}
             >
               <option value="">Choose an exercise...</option>
-              {availableExercises[weekPlan[selectedDay].type].map(exercise => (
+              {availableExercises[weekPlan[selectedDay].type]?.map(exercise => (
                 <option key={exercise} value={exercise}>
                   {exercise}
                 </option>
@@ -406,8 +419,162 @@ const Dashboard = () => {
     setSelectedEx(firstExercise);
   }, [workoutType]);
 
-  // Rest of your existing Dashboard component code (finishWorkout, handleAuth, updateProfile, etc.)
-  // ... [Keep all your existing methods here]
+  const finishWorkout = async () => {
+    const config = WORKOUT_CONFIGS[workoutType];
+    const requiredFields = config.fields;
+    
+    const missingFields = requiredFields.filter(field => !formData[field]);
+    if (missingFields.length > 0) {
+      alert(`Please fill in: ${missingFields.join(', ')}`);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      let exerciseData = {
+        exercise_name: selectedEx,
+        muscle_group: EXERCISES[workoutType][selectedEx] || 'Other',
+        workout_type: workoutType
+      };
+
+      if (workoutType === 'strength') {
+        exerciseData.sets = Number(formData.sets);
+        exerciseData.reps = Number(formData.reps);
+        exerciseData.weight = Number(formData.weight);
+      } else if (workoutType === 'cardio') {
+        exerciseData.sets = 1;
+        exerciseData.reps = Number(formData.minutes);
+        exerciseData.weight = Number(formData.distance) || 0;
+      } else if (workoutType === 'stretch') {
+        exerciseData.sets = 1;
+        exerciseData.reps = Number(formData.minutes);
+        exerciseData.weight = 0;
+      }
+
+      console.log('Sending exercise data:', exerciseData);
+      const payload = [exerciseData];
+      
+      const res = await fetch('/.netlify/functions/database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email, exercises: payload })
+      });
+      
+      if (!res.ok) throw new Error('Failed to save workout');
+      
+      setIsLogging(false);
+      setFormData({ sets: '', reps: '', weight: '', minutes: '', distance: '' });
+      await loadData();
+      
+    } catch (e) {
+      console.error('Save workout error:', e);
+      setError('Failed to save workout');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAuth = async () => {
+    if (!email || !password) {
+      alert('Please enter email and password');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const res = await fetch('/.netlify/functions/database', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'auth', email, password }) 
+      });
+      
+      if (!res.ok) throw new Error('Authentication failed');
+      
+      const data = await res.json();
+      const userData = { 
+        email: data.email,
+        display_name: data.display_name || email.split('@')[0],
+        profile_pic: data.profile_pic || ''
+      };
+      
+      setUser(userData);
+      localStorage.setItem('fitnessUser', JSON.stringify(userData));
+      setProfileForm({
+        displayName: userData.display_name,
+        profilePic: userData.profile_pic
+      });
+      
+    } catch (e) {
+      console.error('Auth error', e);
+      setError('Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const res = await fetch('/.netlify/functions/database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'updateProfile',
+          email: user.email,
+          displayName: profileForm.displayName,
+          profilePic: profileForm.profilePic
+        })
+      });
+      
+      if (!res.ok) throw new Error('Failed to update profile');
+      
+      const updatedUser = {
+        ...user,
+        display_name: profileForm.displayName,
+        profile_pic: profileForm.profilePic
+      };
+      setUser(updatedUser);
+      localStorage.setItem('fitnessUser', JSON.stringify(updatedUser));
+      setShowProfile(false);
+      await loadData();
+      
+    } catch (e) {
+      console.error('Update profile error', e);
+      setError('Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteWorkout = async (workoutId) => {
+    if (!confirm('Delete this workout?')) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const res = await fetch(`/.netlify/functions/database?workoutId=${workoutId}`, { 
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!res.ok) throw new Error('Failed to delete workout');
+      
+      await loadData();
+      
+    } catch (e) {
+      console.error('Delete error', e);
+      setError('Failed to delete workout');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = (() => {
     if (!user || !allData?.workoutLogs) {
@@ -804,8 +971,62 @@ const Dashboard = () => {
   );
 };
 
-// Add these new styles to your existing styles object:
-const newStyles = {
+// Styles object - you'll need to merge this with your existing styles
+const styles = {
+  container: { minHeight: '100vh', background: '#0a0f1d', color: '#f8fafc', padding: '40px', fontFamily: 'sans-serif' },
+  header: { display:'flex', justifyContent:'space-between', marginBottom:'40px', alignItems:'center' },
+  brandTitle: { color:'#6366f1', margin:0, fontWeight:'900', fontSize:'28px' },
+  profileSection: { marginBottom: '25px' },
+  profileCard: { background:'#161d2f', padding:'30px', borderRadius:'24px', border:'1px solid rgba(255,255,255,0.05)' },
+  profileHeader: { display:'flex', gap:'15px', alignItems:'center', marginBottom:'25px' },
+  profileStats: { display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:'20px', marginBottom:'20px' },
+  statItem: { textAlign:'center', padding:'15px', background:'rgba(255,255,255,0.03)', borderRadius:'12px' },
+  statValue: { fontSize:'24px', fontWeight:'bold', color:'#6366f1', marginBottom:'5px' },
+  statLabel: { fontSize:'11px', color:'#94a3b8', textTransform:'uppercase' },
+  favoriteExercise: { textAlign:'center', color:'#94a3b8', fontSize:'14px', marginTop:'10px' },
+  gridTop: { display:'grid', gridTemplateColumns:'1fr 1fr', gap:'25px', marginBottom:'25px' },
+  gridBottom: { display:'grid', gridTemplateColumns:'1fr 1fr', gap:'25px', paddingBottom:'100px' },
+  card: { background:'#161d2f', padding:'25px', borderRadius:'24px', border:'1px solid rgba(255,255,255,0.05)' },
+  cardHeader: { display:'flex', gap:'10px', alignItems:'center', marginBottom:'20px' },
+  row: { display:'flex', justifyContent:'space-between', padding:'12px', background:'rgba(255,255,255,0.02)', borderRadius:'12px', marginBottom:'8px' },
+  balanceRow: { display:'flex', alignItems:'center', gap:'15px', marginBottom:'12px' },
+  groupLabel: { width:'80px', fontSize:'11px', color:'#94a3b8' },
+  barBg: { flex:1, height:'8px', background:'#0a0f1d', borderRadius:'10px' },
+  barFill: { height:'100%', background:'#6366f1', borderRadius:'10px' },
+  scrollArea: { maxHeight:'400px', overflowY:'auto' },
+  historyItem: { display:'flex', padding:'18px', background:'rgba(255,255,255,0.03)', borderRadius:'18px', marginBottom:'12px', alignItems:'center' },
+  dateText: { color:'#6366f1', fontWeight:'bold', width:'65px', fontSize:'12px' },
+  leagueItem: { display:'flex', alignItems:'center', gap:'15px', padding:'14px', background:'rgba(255,255,255,0.02)', borderRadius:'14px', marginBottom:'10px' },
+  rankCircle: { width:'24px', height:'24px', background:'#0a0f1d', borderRadius:'50%', textAlign:'center', fontSize:'11px', lineHeight:'24px' },
+  fabContainer: { position:'fixed', bottom:'30px', left:'50%', transform:'translateX(-50%)', display:'flex', gap:'15px', zIndex: 100 },
+  fab: { padding:'16px 28px', borderRadius:'22px', color:'#fff', border:'none', cursor:'pointer', display:'flex', gap:'10px', fontWeight:'bold' },
+  modalOverlay: { position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(5px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200 },
+  modalContent: { background:'#161d2f', padding:'35px', borderRadius:'32px', width:'90%', maxWidth:'420px' },
+  modalHeader: { display:'flex', justifyContent:'space-between', marginBottom:'25px', alignItems:'center' },
+  label: { fontSize:'10px', color:'#94a3b8', marginBottom:'5px', display:'block' },
+  inputGrid: { display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'15px' },
+  input: { width:'100%', padding:'16px', borderRadius:'16px', background:'#0a0f1d', color:'#fff', border:'1px solid #1e293b', marginBottom:'20px', boxSizing:'border-box' },
+  mainBtn: { width:'100%', padding:'18px', background:'#6366f1', color:'#fff', border:'none', borderRadius:'18px', fontWeight:'bold', cursor:'pointer' },
+  profileBtn: { background:'rgba(99, 102, 241, 0.1)', color: '#6366f1', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.2)', cursor: 'pointer', display:'flex', alignItems:'center', gap:'8px', fontSize:'14px', fontWeight:'bold' },
+  logoutBtn: { background:'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer', display:'flex', alignItems:'center', gap:'8px', fontSize:'14px', fontWeight:'bold' },
+  authCard: { maxWidth:'400px', margin:'100px auto', background:'#161d2f', padding:'50px', borderRadius:'40px', textAlign:'center' },
+  avatarCircle: { width:'100px', height:'100px', borderRadius:'50%', background:'rgba(99, 102, 241, 0.1)', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:'3px solid #6366f1' },
+  error: { color: '#ef4444', fontSize: '14px', marginBottom: '15px', textAlign: 'center' },
+  errorBanner: { background: 'rgba
+  plannerContainer: { padding: '20px 0' },
+  plannerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
+  savePlanBtn: {
+    background: '#6366f1',
+    color: '#fff',
+    padding: '12px 24px',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontWeight: 'bold'
+  },
   weekGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
@@ -885,25 +1106,7 @@ const newStyles = {
     justifyContent: 'center',
     gap: '8px',
     fontSize: '14px'
-  },
-  savePlanBtn: {
-    background: '#6366f1',
-    color: '#fff',
-    padding: '12px 24px',
-    border: 'none',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontWeight: 'bold'
   }
-};
-
-// Merge new styles with existing styles
-const styles = {
-  ...existingStyles, // Your existing styles
-  ...newStyles
 };
 
 export default Dashboard;
