@@ -37,6 +37,7 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [], weekPlan, setWeekPlan }) 
 
   const [selectedDay, setSelectedDay] = useState(null);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [editingExercise, setEditingExercise] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState('');
   const [exerciseDetails, setExerciseDetails] = useState({
     sets: '',
@@ -113,15 +114,44 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [], weekPlan, setWeekPlan }) 
     }));
 
     // Reset form
-    setSelectedExercise('');
+    resetModal();
+  };
+
+  const editExercise = (day, exerciseIndex) => {
+    const exercise = weekPlan[day].exercises[exerciseIndex];
+    setEditingExercise({ day, index: exerciseIndex, exercise });
+    setSelectedExercise(exercise.name);
     setExerciseDetails({
-      sets: '',
-      reps: '',
-      weight: '',
-      minutes: '',
-      distance: ''
+      sets: exercise.sets || '',
+      reps: exercise.reps || '',
+      weight: exercise.weight || '',
+      minutes: exercise.minutes || '',
+      distance: exercise.distance || ''
     });
-    setShowExerciseModal(false);
+    setSelectedDay(day);
+    setShowExerciseModal(true);
+  };
+
+  const updateExercise = () => {
+    if (!selectedExercise || !editingExercise) return;
+
+    const updatedExercise = {
+      name: selectedExercise,
+      type: weekPlan[editingExercise.day].type,
+      ...exerciseDetails
+    };
+
+    setWeekPlan(prev => ({
+      ...prev,
+      [editingExercise.day]: {
+        ...prev[editingExercise.day],
+        exercises: prev[editingExercise.day].exercises.map((ex, index) => 
+          index === editingExercise.index ? updatedExercise : ex
+        )
+      }
+    }));
+
+    resetModal();
   };
 
   const removeExercise = (day, exerciseIndex) => {
@@ -132,6 +162,20 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [], weekPlan, setWeekPlan }) 
         exercises: prev[day].exercises.filter((_, index) => index !== exerciseIndex)
       }
     }));
+  };
+
+  const resetModal = () => {
+    setSelectedExercise('');
+    setExerciseDetails({
+      sets: '',
+      reps: '',
+      weight: '',
+      minutes: '',
+      distance: ''
+    });
+    setEditingExercise(null);
+    setShowExerciseModal(false);
+    setSelectedDay(null);
   };
 
   const saveWeekPlan = async () => {
@@ -187,29 +231,39 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [], weekPlan, setWeekPlan }) 
                 <div style={styles.exercisesList}>
                   {weekPlan[day].exercises.map((exercise, index) => (
                     <div key={index} style={styles.exerciseItem}>
-                      <span>{exercise.name}</span>
-                      <div style={styles.exerciseDetails}>
-                        {exercise.type === 'strength' ? (
-                          <>
-                            {exercise.sets && <span>{exercise.sets} sets</span>}
-                            {exercise.reps && <span>{exercise.reps} reps</span>}
-                            {exercise.weight && <span>{exercise.weight}kg</span>}
-                          </>
-                        ) : exercise.type === 'cardio' ? (
-                          <>
-                            {exercise.minutes && <span>{exercise.minutes} min</span>}
-                            {exercise.distance && <span>{exercise.distance} km</span>}
-                          </>
-                        ) : (
-                          exercise.minutes && <span>{exercise.minutes} min</span>
-                        )}
+                      <div style={styles.exerciseInfo}>
+                        <span style={styles.exerciseName}>{exercise.name}</span>
+                        <div style={styles.exerciseDetails}>
+                          {exercise.type === 'strength' ? (
+                            <>
+                              {exercise.sets && <span>{exercise.sets} sets</span>}
+                              {exercise.reps && <span>{exercise.reps} reps</span>}
+                              {exercise.weight && <span>{exercise.weight}kg</span>}
+                            </>
+                          ) : exercise.type === 'cardio' ? (
+                            <>
+                              {exercise.minutes && <span>{exercise.minutes} min</span>}
+                              {exercise.distance && <span>{exercise.distance} km</span>}
+                            </>
+                          ) : (
+                            exercise.minutes && <span>{exercise.minutes} min</span>
+                          )}
+                        </div>
                       </div>
-                      <button 
-                        style={styles.removeExerciseBtn}
-                        onClick={() => removeExercise(day, index)}
-                      >
-                        <X size={14} />
-                      </button>
+                      <div style={styles.exerciseActions}>
+                        <button 
+                          style={styles.editExerciseBtn}
+                          onClick={() => editExercise(day, index)}
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button 
+                          style={styles.removeExerciseBtn}
+                          onClick={() => removeExercise(day, index)}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -233,8 +287,8 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [], weekPlan, setWeekPlan }) 
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <div style={styles.modalHeader}>
-              <h3>Add Exercise to {selectedDay}</h3>
-              <X onClick={() => setShowExerciseModal(false)} style={{cursor:'pointer'}}/>
+              <h3>{editingExercise ? `Edit Exercise for ${selectedDay}` : `Add Exercise to ${selectedDay}`}</h3>
+              <X onClick={resetModal} style={{cursor:'pointer'}}/>
             </div>
 
             <label style={styles.label}>Select Exercise</label>
@@ -322,10 +376,10 @@ const WorkoutPlanner = ({ userEmail, workoutLogs = [], weekPlan, setWeekPlan }) 
 
             <button 
               style={styles.mainBtn}
-              onClick={() => addExerciseToDay(selectedDay)}
+              onClick={editingExercise ? updateExercise : () => addExerciseToDay(selectedDay)}
               disabled={!selectedExercise}
             >
-              Add Exercise
+              {editingExercise ? 'Update Exercise' : 'Add Exercise'}
             </button>
           </div>
         </div>
@@ -1053,7 +1107,7 @@ const Dashboard = () => {
               style={styles.input}
               value={profileForm.profilePic}
               onChange={e => setProfileForm(prev => ({...prev, profilePic: e.target.value}))}
-              placeholder="https://example.com/avatar.jpg"
+              placeholder="https://example.com/avatar.jpg "
               disabled={loading}
             />
             <button 
@@ -1195,18 +1249,38 @@ const styles = {
     borderRadius: '8px',
     marginBottom: '8px'
   },
+  exerciseInfo: {
+    flex: 1
+  },
+  exerciseName: {
+    fontWeight: '600',
+    marginBottom: '4px'
+  },
   exerciseDetails: {
     display: 'flex',
     gap: '10px',
     fontSize: '12px',
     color: '#94a3b8'
   },
+  exerciseActions: {
+    display: 'flex',
+    gap: '8px'
+  },
+  editExerciseBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#6366f1',
+    cursor: 'pointer',
+    padding: '4px',
+    fontSize: '14px'
+  },
   removeExerciseBtn: {
     background: 'transparent',
     border: 'none',
     color: '#ef4444',
     cursor: 'pointer',
-    padding: '4px'
+    padding: '4px',
+    fontSize: '14px'
   },
   addExerciseBtn: {
     width: '100%',
