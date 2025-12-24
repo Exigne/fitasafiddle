@@ -1012,7 +1012,7 @@ const styles = {
   authCard: { maxWidth:'400px', margin:'100px auto', background:'#161d2f', padding:'50px', borderRadius:'40px', textAlign:'center' },
   avatarCircle: { width:'100px', height:'100px', borderRadius:'50%', background:'rgba(99, 102, 241, 0.1)', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:'3px solid #6366f1' },
   error: { color: '#ef4444', fontSize: '14px', marginBottom: '15px', textAlign: 'center' },
-  errorBanner: { background: 'rgba
+  errorBanner: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '12px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' },
     
   plannerContainer: { padding: '20px 0' },
   plannerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
